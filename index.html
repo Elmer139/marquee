@@ -357,7 +357,7 @@
 (function () {
   "use strict";
 
-  var APP_VERSION = "0.9.9";
+  var APP_VERSION = "0.9.10";
   var yt = function (id) { return "https://www.youtube.com/watch?v=" + id; };
 
   // The way the user navigates: by FEELING. Moods show first in the filter bar (in this order),
@@ -1514,6 +1514,8 @@
   var storiesBusy = false;
   function backfillStories() {
     if (storiesBusy) return;
+    // re-queue any card marked "done" that never actually received a vibe
+    userItems.forEach(function (it) { if (it._storied && !it.logline) delete it._storied; });
     var pending = userItems.filter(function (it) { return !it._storied && (!it.note || !it.logline); });
     if (!pending.length) return;
     storiesBusy = true;
@@ -1527,11 +1529,13 @@
         .then(function (j) {
           if (!j || j.configured === false || j.error) { storiesBusy = false; return; } // no key / rate-limited -> stop, retry next session
           if (j.story) {
-            if (j.story.logline && !it.logline) it.logline = j.story.logline;
-            if (j.story.trivia && !it.note) it.note = j.story.trivia;
-            it._storied = true; save(); render();
+            var got = false;
+            if (j.story.logline && !it.logline) { it.logline = j.story.logline; got = true; }
+            if (j.story.trivia && !it.note) { it.note = j.story.trivia; got = true; }
+            if (j.story.logline) it._storied = true; // only "done" once it truly has a vibe
+            if (got) { save(); render(); }
           }
-          i++; setTimeout(next, 1300); // gentle throttle for the free tier
+          i++; setTimeout(next, 2200); // stay under the free-tier rate limit
         })
         .catch(function () { storiesBusy = false; });
     })();
