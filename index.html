@@ -357,7 +357,7 @@
 (function () {
   "use strict";
 
-  var APP_VERSION = "0.9.11";
+  var APP_VERSION = "0.9.12";
   var yt = function (id) { return "https://www.youtube.com/watch?v=" + id; };
 
   // The way the user navigates: by FEELING. Moods show first in the filter bar (in this order),
@@ -1408,11 +1408,11 @@
     if (tb) { pickTmdb(tb.dataset.tmdbid, tb.dataset.kind); return; }
     var b = e.target.closest("button[data-key]"); if (b) pickLookup(b.dataset.key);
   });
-  // Enter in a text field must NEVER submit/close the form; in the Title box it runs Look up.
+  // Enter in ANY field (except the multi-line notes) runs Look up — and never submits/closes the form.
   form.addEventListener("keydown", function (e) {
     if (e.key !== "Enter" || e.target.tagName !== "INPUT") return;
     e.preventDefault();
-    if (e.target.name === "title") runLookup();
+    runLookup();
   });
 
   form.addEventListener("submit", function (e) {
