@@ -323,13 +323,13 @@
 (function () {
   "use strict";
 
-  var APP_VERSION = "0.7.0";
+  var APP_VERSION = "0.7.1";
   var yt = function (id) { return "https://www.youtube.com/watch?v=" + id; };
 
   // The way the user navigates: by FEELING. Moods show first in the filter bar (in this order),
   // genres follow. Items can carry several moods at once.
   var MOOD_ORDER = ["True Love", "Heartbreaking", "Sorrow", "Tear Jerkers", "Funny", "Inspirational",
-    "Thought-Provoking", "Spiritual", "Controversial", "Hidden Gem", "Mastery"];
+    "Thought-Provoking", "Thrilling", "Spiritual", "Controversial", "Hidden Gem", "Mastery"];
 
   // Mood tags for the seeded catalog, keyed by "title|year" (kept here so the data stays tidy).
   var MOODS = {
@@ -367,7 +367,24 @@
     "California Dreamin'|1965": ["Spiritual"],
     "Our House|1970": ["True Love"],
     "Bohemian Rhapsody|1975": ["Mastery"],
-    "Scarborough Fair|1966": ["Hidden Gem"]
+    "Scarborough Fair|1966": ["Hidden Gem"],
+    "Life|2017": ["Thrilling", "Thought-Provoking"],
+    "Ambulance|2022": ["Thrilling"],
+    "Superman|1978": ["Inspirational", "Thrilling"],
+    "Man of Steel|2013": ["Thrilling", "Thought-Provoking"],
+    "X-Men|2000": ["Thrilling"],
+    "X2: X-Men United|2003": ["Thrilling"],
+    "The Incredible Hulk|1977": ["Heartbreaking", "Thrilling"],
+    "The Six Million Dollar Man|1973": ["Thrilling"],
+    "Wonder Woman|1975": ["Inspirational", "Thrilling"],
+    "Wonder Woman|2017": ["Inspirational", "Thrilling"],
+    "Star Trek|2009": ["Thrilling"],
+    "Star Trek Into Darkness|2013": ["Thrilling"],
+    "Simon & Garfunkel|1964": ["Tear Jerkers", "Inspirational"],
+    "Tame Impala|2010": ["Thought-Provoking"],
+    "The Doors|1965": ["Thought-Provoking", "Thrilling"],
+    "The Beatles|1960": ["Inspirational", "Mastery"],
+    "Elton John|1969": ["Inspirational", "Mastery"]
   };
 
   // Moods for an item: user-added items store their own; seeds come from MOODS (+ any legacy `collection`).
@@ -998,13 +1015,17 @@
   function suggestMoods(text) {
     var g = (text || "").toLowerCase(), out = [];
     function add(m) { if (out.indexOf(m) === -1) out.push(m); }
-    if (/romance|romantic/.test(g)) add("True Love");
-    if (/comedy|comic/.test(g)) add("Funny");
-    if (/\bwar\b/.test(g)) { add("Heartbreaking"); add("Thought-Provoking"); }
-    if (/document|biograph/.test(g)) { add("Inspirational"); add("Thought-Provoking"); }
-    if (/thriller|mystery|science fiction|sci-fi|dystopian/.test(g)) add("Thought-Provoking");
-    if (/horror/.test(g)) add("Controversial");
-    if (/\bdrama\b/.test(g) && !out.length) add("Heartbreaking");
+    if (/romance|romantic|love story/.test(g)) add("True Love");
+    if (/comed|comic|parody|farce|sitcom/.test(g)) add("Funny");
+    if (/\bwar\b|holocaust/.test(g)) { add("Heartbreaking"); add("Thought-Provoking"); }
+    if (/document|biograph|based on a true|historical|\bhistory\b/.test(g)) { add("Inspirational"); add("Thought-Provoking"); }
+    if (/action|adventure|superhero|\bspy\b|heist|thriller|crime|disaster|martial|western|survival/.test(g)) add("Thrilling");
+    if (/science fiction|sci-fi|mystery|psychological|dystop|philosoph|surreal|neo-noir|\bnoir\b/.test(g)) add("Thought-Provoking");
+    if (/horror|slasher/.test(g)) add("Controversial");
+    if (/musical|sports|underdog/.test(g)) add("Inspirational");
+    if (/animat|family/.test(g)) add("Funny");
+    if (/\bdrama\b|tragedy/.test(g)) add("Heartbreaking");
+    if (/soul|gospel|worship/.test(g)) add("Spiritual");
     return out;
   }
   function pickLookup(pageKey) {
@@ -1025,7 +1046,8 @@
           if (g && !form.querySelector('[name="genre"]').value) setField("genre", g);
         }
         var ms = suggestMoods((parseGenre(ex) || "") + " " + ex);
-        if (ms.length && !form.querySelector('[name="moods"]').value) setField("moods", ms.join(", "));
+        if (!ms.length) ms = [domain === "screen" ? "Thrilling" : "Inspirational"];
+        if (!form.querySelector('[name="moods"]').value) setField("moods", ms.join(", "));
         if (j.thumbnail && j.thumbnail.source) state.lookupImg = j.thumbnail.source;
         lookupBox.classList.remove("show"); lookupBox.innerHTML = "";
       })
@@ -1089,7 +1111,46 @@
     document.querySelectorAll(".domain-tab").forEach(function (t) { t.classList.toggle("active", t.dataset.d === domain); });
     applyAccent(); closeModal(); render();
     if (wasEdit && resultId) openDetail(resultId); // reopen the detail so the change is visible
+    backfillMoods();
   });
+
+  // ---------- Auto-populate the "feel" on every card (once; respects later removals) ----------
+  function enrichMoods(it, cb) {
+    if ((it.moods && it.moods.length) || it._enriched) { cb(false); return; }
+    it._enriched = true;
+    var dflt = it.d === "screen" ? "Thrilling" : "Inspirational"; // never leave a card blank
+    var fromHave = suggestMoods(((it.genre || []).join(" ")) + " " + (it.note || ""));
+    if (fromHave.length) { it.moods = fromHave; cb(true); return; }
+    var base = "https://en.wikipedia.org/w/api.php?action=query&list=search&srlimit=8&format=json&origin=*&srsearch=";
+    var q = it.title + (it.year ? " " + it.year : "") + (it.d === "screen" ? " film" : "");
+    fetch(base + encodeURIComponent(q)).then(function (r) { return r.json(); }).then(function (j) {
+      var hits = rankHits((j.query && j.query.search) || [], it.sub, String(it.year || ""), it.d);
+      if (!hits.length) { it.moods = [dflt]; cb(true); return; }
+      return fetch("https://en.wikipedia.org/api/rest_v1/page/summary/" + encodeURIComponent(hits[0].title))
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (s) {
+          var ex = s ? (s.extract || "") : "";
+          if (it.d === "screen" && (!it.genre || !it.genre.length)) { var g = parseGenre(ex); if (g) it.genre = [g]; }
+          if (!it.year && ex) { var ym = ex.match(/\b(?:19|20)\d{2}\b/); if (ym) it.year = parseInt(ym[0], 10); }
+          if (!it.note && ex) it.note = ex;
+          if (!it.img && s && s.thumbnail && s.thumbnail.source) it.img = s.thumbnail.source;
+          var ms = suggestMoods(((it.genre || []).join(" ")) + " " + ex);
+          it.moods = ms.length ? ms : [dflt];
+          cb(true);
+        });
+    }).catch(function () { it.moods = [dflt]; cb(true); });
+  }
+  function backfillMoods() {
+    var pending = userItems.filter(function (it) { return !(it.moods && it.moods.length) && !it._enriched; });
+    if (!pending.length) return;
+    var remaining = pending.length, touched = false;
+    pending.forEach(function (it) {
+      enrichMoods(it, function (changed) {
+        if (changed) touched = true;
+        if (--remaining === 0) { save(); if (touched) render(); }
+      });
+    });
+  }
 
   // ---------- Theme ----------
   (function initTheme() {
@@ -1109,5 +1170,6 @@
 
   applyAccent();
   render();
+  backfillMoods();
 })();
 </script>
