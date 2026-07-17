@@ -18,7 +18,7 @@ Built as a single self-contained `index.html` (no build step, no dependencies) s
 - Live streaming / TV / radio availability via a data API (TMDB + JustWatch)
 
 ## Versioning
-Semantic version shown in the app footer and tagged in git. Current: **v0.7.1**.
+Semantic version shown in the app footer and tagged in git. Current: **v0.7.2**.
 
 ## Hosting
 Static site — deploys as-is to GitHub Pages or Vercel.

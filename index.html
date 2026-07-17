@@ -323,7 +323,7 @@
 (function () {
   "use strict";
 
-  var APP_VERSION = "0.7.1";
+  var APP_VERSION = "0.7.2";
   var yt = function (id) { return "https://www.youtube.com/watch?v=" + id; };
 
   // The way the user navigates: by FEELING. Moods show first in the filter bar (in this order),
@@ -1016,16 +1016,16 @@
     var g = (text || "").toLowerCase(), out = [];
     function add(m) { if (out.indexOf(m) === -1) out.push(m); }
     if (/romance|romantic|love story/.test(g)) add("True Love");
-    if (/comed|comic|parody|farce|sitcom/.test(g)) add("Funny");
+    if (/\bcomedy\b|comedies|romantic comedy|comedy-drama|sitcom|parody|\bfarce\b|screwball|slapstick|mockumentary/.test(g)) add("Funny");
     if (/\bwar\b|holocaust/.test(g)) { add("Heartbreaking"); add("Thought-Provoking"); }
     if (/document|biograph|based on a true|historical|\bhistory\b/.test(g)) { add("Inspirational"); add("Thought-Provoking"); }
     if (/action|adventure|superhero|\bspy\b|heist|thriller|crime|disaster|martial|western|survival/.test(g)) add("Thrilling");
     if (/science fiction|sci-fi|mystery|psychological|dystop|philosoph|surreal|neo-noir|\bnoir\b/.test(g)) add("Thought-Provoking");
     if (/horror|slasher/.test(g)) add("Controversial");
-    if (/musical|sports|underdog/.test(g)) add("Inspirational");
-    if (/animat|family/.test(g)) add("Funny");
+    if (/musical|\bsports\b|underdog/.test(g)) add("Inspirational");
+    if (/\banimated\b|animation|children's/.test(g)) add("Funny");
     if (/\bdrama\b|tragedy/.test(g)) add("Heartbreaking");
-    if (/soul|gospel|worship/.test(g)) add("Spiritual");
+    if (/soul music|gospel|\bworship\b/.test(g)) add("Spiritual");
     return out;
   }
   function pickLookup(pageKey) {
