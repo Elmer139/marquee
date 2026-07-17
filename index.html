@@ -98,6 +98,10 @@
   .poster .ph { font-family: var(--serif); font-style: italic; font-weight: 700; font-size: 21px; color: rgba(255,255,255,0.92); letter-spacing: 0.5px; text-shadow: 0 1px 3px rgba(0,0,0,0.28); }
   .poster.has-img { border-color: transparent; }
   .poster.has-img .ph { display: none; }
+  .poster.has-img { cursor: zoom-in; }
+  .lightbox { position: fixed; inset: 0; z-index: 60; background: rgba(8,8,10,0.88); display: none; align-items: center; justify-content: center; padding: 24px; cursor: zoom-out; }
+  .lightbox.open { display: flex; }
+  .lightbox img { max-width: 92vw; max-height: 92vh; border-radius: 10px; box-shadow: 0 12px 48px rgba(0,0,0,0.6); }
   .card-body { flex: 1; min-width: 0; display: flex; flex-direction: column; }
   .card h3 { font-family: var(--serif); font-style: italic; font-weight: 700; font-size: 19px; margin: 0 0 2px; line-height: 1.2; min-height: 2.4em; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
   .card .meta { color: var(--ink-2); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -302,6 +306,10 @@
         <input name="trailer" placeholder="https://youtu.be/…  or  netflix.com/title/…">
       </div>
       <div class="field">
+        <label>Poster image link <span class="hint">(optional — paste a poster URL to pin the exact version)</span></label>
+        <input name="posterUrl" placeholder="https://…/poster.jpg">
+      </div>
+      <div class="field">
         <label>Signature moments <span class="hint">(a scene worth sharing — label + link)</span></label>
         <div class="hl-row"><input name="hl_label_1" placeholder="e.g. The ending"><input name="hl_url_1" placeholder="https://youtu.be/…"></div>
         <div class="hl-row"><input name="hl_label_2" placeholder="Another moment"><input name="hl_url_2" placeholder="https://youtu.be/…"></div>
@@ -319,11 +327,13 @@
   </div>
 </div>
 
+<div class="lightbox" id="lightbox"><img id="lightboxImg" alt="Poster"></div>
+
 <script>
 (function () {
   "use strict";
 
-  var APP_VERSION = "0.7.2";
+  var APP_VERSION = "0.8.0";
   var yt = function (id) { return "https://www.youtube.com/watch?v=" + id; };
 
   // The way the user navigates: by FEELING. Moods show first in the filter bar (in this order),
@@ -439,19 +449,42 @@
   }
   function paintPoster(el, url) {
     var pre = new Image();
-    pre.onload = function () { el.style.backgroundImage = "url('" + url + "')"; el.classList.add("has-img"); };
+    pre.onload = function () { el.style.backgroundImage = "url('" + url + "')"; el.classList.add("has-img"); el.dataset.img = url; };
     pre.src = url; // keep the placeholder until the real image is decoded
+  }
+  function wikiThumb(title, cb) {
+    fetch("https://en.wikipedia.org/api/rest_v1/page/summary/" + encodeURIComponent(title))
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) { cb(j && j.thumbnail && j.thumbnail.source ? j.thumbnail.source : null); })
+      .catch(function () { cb(null); });
+  }
+  // When there's no poster, fall back to a photo of the lead actor / artist / group (nicer than initials).
+  function personName(it) {
+    var s = (it.sub || "").trim();
+    if (!s) return "";
+    if (it.d === "sound") return s.split("·")[0].trim(); // the artist/group (keep "Simon & Garfunkel" whole)
+    var parts = s.split("·");
+    var pick = parts.length > 1 ? parts[1] : parts[0]; // prefer a cast member over the director
+    return (pick || "").split(/,|&| and /)[0].trim();
+  }
+  function tryPerson(it, cb) {
+    var name = personName(it);
+    if (!name) { cb(null); return; }
+    var pk = "person:" + name;
+    if (Object.prototype.hasOwnProperty.call(imgCache, pk)) { cb(imgCache[pk]); return; }
+    wikiThumb(name, function (url) { imgCache[pk] = url; saveImg(); cb(url); });
   }
   function resolvePoster(it, cb) {
     if (it.img) { cb(it.img); return; } // explicit image from lookup / TMDB
     var q = posterQuery(it);
-    if (Object.prototype.hasOwnProperty.call(imgCache, q)) { cb(imgCache[q]); return; }
-    fetch("https://en.wikipedia.org/api/rest_v1/page/summary/" + encodeURIComponent(q))
-      .then(function (r) { return r.ok ? r.json() : null; })
-      .then(function (j) {
-        var url = j && j.thumbnail && j.thumbnail.source ? j.thumbnail.source : null;
-        imgCache[q] = url; saveImg(); cb(url);
-      }).catch(function () { cb(null); });
+    if (Object.prototype.hasOwnProperty.call(imgCache, q)) {
+      if (imgCache[q]) { cb(imgCache[q]); return; }
+      tryPerson(it, cb); return; // no poster on file -> try a person photo
+    }
+    wikiThumb(q, function (url) {
+      imgCache[q] = url; saveImg();
+      if (url) cb(url); else tryPerson(it, cb);
+    });
   }
   function loadPoster(it) {
     var el = document.querySelector('.grid .poster[data-pid="' + it.id + '"]');
@@ -856,8 +889,23 @@
     state.detailId = null; state.confirmDel = null;
   }
   $("#closeDetail").addEventListener("click", closeDetail);
+
+  // ---------- Lightbox (tap a poster to see it large) ----------
+  var lightbox = $("#lightbox"), lightboxImg = $("#lightboxImg");
+  function bigImg(url) { return /upload\.wikimedia\.org/.test(url) ? url.replace(/\/\d+px-/, "/640px-") : url; }
+  function openLightbox(url) {
+    if (!url) return;
+    lightboxImg.onerror = function () { lightboxImg.onerror = null; lightboxImg.src = url; }; // fall back if the upsized URL 404s
+    lightboxImg.src = bigImg(url);
+    lightbox.classList.add("open");
+  }
+  function closeLightbox() { lightbox.classList.remove("open"); lightboxImg.removeAttribute("src"); }
+  lightbox.addEventListener("click", closeLightbox);
+
   detailOverlay.addEventListener("click", function (e) {
     if (e.target === detailOverlay) { closeDetail(); return; }
+    var posterEl = e.target.closest(".poster.has-img");
+    if (posterEl) { openLightbox(posterEl.dataset.img); return; }
     var shareBtn = e.target.closest("[data-share]");
     if (shareBtn) { copyShare(byId(shareBtn.dataset.share), shareBtn); return; }
     var delBtn = e.target.closest("[data-del]");
@@ -895,6 +943,8 @@
 
   $("#content").addEventListener("click", function (e) {
     if (e.target.closest("a")) return;
+    var posterEl = e.target.closest(".poster.has-img");
+    if (posterEl) { e.stopPropagation(); openLightbox(posterEl.dataset.img); return; }
     var collChip = e.target.closest("[data-coll]");
     if (collChip) { e.stopPropagation(); state.coll = collChip.dataset.coll; render(); return; }
     var th = e.target.closest("th[data-sort]");
@@ -933,7 +983,7 @@
       $("#submitBtn").textContent = "Save changes";
       setField("title", item.title); setField("sub", item.sub); setField("year", item.year);
       setField("type", item.type); setField("genre", (item.genre || []).join(", "));
-      setField("moods", moodsOf(item).join(", ")); setField("note", item.note); setField("trailer", item.trailer);
+      setField("moods", moodsOf(item).join(", ")); setField("note", item.note); setField("trailer", item.trailer); setField("posterUrl", item.img);
       var hl = item.highlights || [];
       setField("hl_label_1", hl[0] ? hl[0].label : ""); setField("hl_url_1", hl[0] ? hl[0].url : "");
       setField("hl_label_2", hl[1] ? hl[1].label : ""); setField("hl_url_2", hl[1] ? hl[1].url : "");
@@ -942,7 +992,13 @@
       $("#submitBtn").textContent = "Add to Marquee";
     }
     overlay.classList.add("open");
-    setTimeout(function () { form.querySelector('input[name="title"]').focus(); }, 50);
+    var modalEl = overlay.querySelector(".modal");
+    if (modalEl) modalEl.scrollTop = 0; // always start at the top (Title field), never scrolled down
+    setTimeout(function () {
+      if (modalEl) modalEl.scrollTop = 0;
+      var t = form.querySelector('input[name="title"]');
+      if (t) t.focus({ preventScroll: true }); // focus without yanking the modal to the bottom
+    }, 60);
   }
   function closeModal() {
     overlay.classList.remove("open"); form.reset();
@@ -953,7 +1009,7 @@
   $("#closeModal").addEventListener("click", closeModal);
   overlay.addEventListener("click", function (e) { if (e.target === overlay) closeModal(); });
   form.querySelectorAll('input[name="domain"]').forEach(function (r) { r.addEventListener("change", function () { fillTypes(r.value); }); });
-  document.addEventListener("keydown", function (e) { if (e.key === "Escape") { closeModal(); closeDetail(); } });
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape") { closeLightbox(); closeModal(); closeDetail(); } });
 
   // ----- Auto-fill lookup (keyless via Wikipedia; TMDB will supersede once its key is set) -----
   var lookupBox = $("#lookup");
@@ -971,11 +1027,14 @@
     var subWords = (sub || "").toLowerCase().split(/\s+/).filter(function (w) { return w.length > 2; });
     return hits.map(function (h, i) {
       var text = ((h.title || "") + " " + (h.snippet || "")).replace(/<[^>]+>/g, "").toLowerCase();
-      var score = -i * 0.3;
+      var score = -i * 0.05; // gentle nudge for Wikipedia's own order; content signals should dominate
       if (yr && (h.title.indexOf(yr) > -1 || text.indexOf(yr) > -1)) score += 4;
       subWords.forEach(function (w) { if (text.indexOf(w) > -1) score += 1.4; });
-      if (domain === "screen" && /\bfilm\b|television series|tv series|miniseries|sitcom/.test(text)) score += 1.4;
-      if (domain === "sound" && /\bsong\b|\balbum\b|single|band|musician|singer/.test(text)) score += 1.2;
+      if (domain === "screen" && /\(\d{4} film\)|\bfilm\b|television series|tv series|miniseries|sitcom/.test(text)) score += 2.2;
+      if (domain === "sound" && /\bsong\b|\balbum\b|single|band|musician|singer/.test(text)) score += 1.8;
+      if (/\(\d{4} film\)|\(film\)|\(\d{4} tv series\)/.test((h.title || "").toLowerCase())) score += 1.6; // an actual film/series page title is a strong match
+      if (/\(disambiguation\)|^list of/.test((h.title || "").toLowerCase())) score -= 2.5; // skip index/list pages
+      if (/\bis a[n]? .{0,34}(company|studio|distributor|label|network|franchise|imprint)\b/.test(text)) score -= 3; // demote companies/orgs
       // demote a person's biography page (we want the work, not the actor/artist)
       if (/\bis (an?|the)\b[^.]{0,40}\b(actor|actress|singer|musician|director|producer|rapper|songwriter|comedian|screenwriter|filmmaker)\b/.test(text)) score -= 3.5;
       return { h: h, s: score };
@@ -989,17 +1048,28 @@
     var domain = (form.querySelector('input[name="domain"]:checked') || {}).value || "screen";
     lookupBox.classList.add("show");
     lookupBox.innerHTML = '<div class="lr-status">Searching…</div>';
-    var base = "https://en.wikipedia.org/w/api.php?action=query&list=search&srlimit=12&format=json&origin=*&srsearch=";
+    var base = "https://en.wikipedia.org/w/api.php?action=query&list=search&srlimit=12&srinfo=suggestion&srprop=snippet&format=json&origin=*&srsearch=";
     var suffix = domain === "screen" ? " film" : "";
     var plain = qv + suffix;
     var rich = qv + (sub ? " " + sub : "") + (yr ? " " + yr : "") + suffix;
-    var reqs = [fetch(base + encodeURIComponent(plain)).then(function (r) { return r.json(); })];
-    if (rich !== plain) reqs.push(fetch(base + encodeURIComponent(rich)).then(function (r) { return r.json(); }));
+    function searchWiki(q) { return fetch(base + encodeURIComponent(q)).then(function (r) { return r.json(); }); }
+    function merge(seen, into, j) { ((j.query && j.query.search) || []).forEach(function (h) { if (!seen[h.title]) { seen[h.title] = 1; into.push(h); } }); }
+    var reqs = [searchWiki(plain)];
+    if (rich !== plain) reqs.push(searchWiki(rich));
+    if (qv !== plain) reqs.push(searchWiki(qv)); // raw title = the most reliable "did you mean" source
     Promise.all(reqs).then(function (js) {
-      var seen = {}, merged = [];
+      var seen = {}, merged = [], suggestion = null;
       js.forEach(function (j) {
-        ((j.query && j.query.search) || []).forEach(function (h) { if (!seen[h.title]) { seen[h.title] = 1; merged.push(h); } });
+        if (j.query && j.query.searchinfo && j.query.searchinfo.suggestion) suggestion = j.query.searchinfo.suggestion;
+        merge(seen, merged, j);
       });
+      // Typo tolerance: whenever Wikipedia has a "did you mean", fold those results in too.
+      if (suggestion && suggestion.toLowerCase() !== qv.toLowerCase()) {
+        return searchWiki(suggestion + (/film|song/.test(suggestion) ? "" : suffix)).then(function (j2) {
+          merge(seen, merged, j2);
+          renderLookupHits(rankHits(merged, sub, yr, domain).slice(0, 12));
+        });
+      }
       renderLookupHits(rankHits(merged, sub, yr, domain).slice(0, 12));
     }).catch(function () { lookupBox.innerHTML = '<div class="lr-status">Lookup needs internet — works on the live site.</div>'; });
   }
@@ -1090,7 +1160,8 @@
     };
     var trailer = (f.get("trailer") || "").trim();
     if (trailer) fields.trailer = trailer;
-    var img = state.lookupImg || (orig && orig.img) || null;
+    var posterUrl = (f.get("posterUrl") || "").trim();
+    var img = posterUrl || state.lookupImg || (orig && orig.img) || null; // a pasted poster wins
     if (img) fields.img = img;
 
     var resultId = null, wasEdit = !!state.editId;
