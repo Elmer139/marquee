@@ -185,8 +185,8 @@
   .lookup-results button { display: block; width: 100%; text-align: left; background: var(--surface); border: none; border-bottom: 1px solid var(--line); padding: 10px 12px; cursor: pointer; font-family: var(--sans); color: var(--ink); }
   .lookup-results button:last-child { border-bottom: none; }
   .lookup-results button:hover { background: var(--surface-2); }
-  .lookup-results .lr-title { font-weight: 600; font-size: 14px; }
-  .lookup-results .lr-desc { font-size: 12px; color: var(--ink-3); margin-top: 1px; }
+  .lookup-results .lr-title { display: block; font-weight: 700; font-size: 14px; }
+  .lookup-results .lr-desc { display: block; font-size: 12.5px; color: var(--ink-2); margin-top: 2px; line-height: 1.4; }
   .lookup-results .lr-status { padding: 10px 12px; font-size: 13px; color: var(--ink-3); }
   .hl-row { display: grid; grid-template-columns: 1fr 1.3fr; gap: 8px; }
   .domain-pick { display: flex; gap: 8px; }
@@ -307,7 +307,7 @@
 (function () {
   "use strict";
 
-  var APP_VERSION = "0.6.3";
+  var APP_VERSION = "0.6.4";
   var yt = function (id) { return "https://www.youtube.com/watch?v=" + id; };
 
   // The way the user navigates: by FEELING. Moods show first in the filter bar (in this order),
@@ -887,25 +887,51 @@
 
   // ----- Auto-fill lookup (keyless via Wikipedia; TMDB will supersede once its key is set) -----
   var lookupBox = $("#lookup");
+  function decodeEntities(s) { var t = document.createElement("textarea"); t.innerHTML = s; return t.value; }
+  function renderLookupHits(hits) {
+    if (!hits.length) { lookupBox.innerHTML = '<div class="lr-status">No matches — just fill it in manually.</div>'; return; }
+    lookupBox.innerHTML = hits.map(function (h) {
+      var snip = decodeEntities((h.snippet || "").replace(/<[^>]+>/g, "")).slice(0, 180);
+      return '<button type="button" data-key="' + esc(h.title) + '"><span class="lr-title">' + esc(h.title) +
+        '</span><span class="lr-desc">' + esc(snip) + "…</span></button>";
+    }).join("");
+  }
+  // Re-rank merged results: real titles (films/series) up, the year up, person bio pages down.
+  function rankHits(hits, sub, yr, domain) {
+    var subWords = (sub || "").toLowerCase().split(/\s+/).filter(function (w) { return w.length > 2; });
+    return hits.map(function (h, i) {
+      var text = ((h.title || "") + " " + (h.snippet || "")).replace(/<[^>]+>/g, "").toLowerCase();
+      var score = -i * 0.3;
+      if (yr && (h.title.indexOf(yr) > -1 || text.indexOf(yr) > -1)) score += 4;
+      subWords.forEach(function (w) { if (text.indexOf(w) > -1) score += 1.4; });
+      if (domain === "screen" && /\bfilm\b|television series|tv series|miniseries|sitcom/.test(text)) score += 1.4;
+      if (domain === "sound" && /\bsong\b|\balbum\b|single|band|musician|singer/.test(text)) score += 1.2;
+      // demote a person's biography page (we want the work, not the actor/artist)
+      if (/\bis (an?|the)\b[^.]{0,40}\b(actor|actress|singer|musician|director|producer|rapper|songwriter|comedian|screenwriter|filmmaker)\b/.test(text)) score -= 3.5;
+      return { h: h, s: score };
+    }).sort(function (a, b) { return b.s - a.s; }).map(function (x) { return x.h; });
+  }
   function runLookup() {
     var qv = (form.querySelector('input[name="title"]').value || "").trim();
     if (!qv) { form.querySelector('input[name="title"]').focus(); return; }
+    var sub = (form.querySelector('input[name="sub"]').value || "").trim();
+    var yr = (form.querySelector('input[name="year"]').value || "").trim();
     var domain = (form.querySelector('input[name="domain"]:checked') || {}).value || "screen";
     lookupBox.classList.add("show");
     lookupBox.innerHTML = '<div class="lr-status">Searching…</div>';
-    fetch("https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=" +
-      encodeURIComponent(qv + (domain === "screen" ? " film" : "")) + "&srlimit=12&format=json&origin=*")
-      .then(function (r) { return r.json(); })
-      .then(function (j) {
-        var hits = (j.query && j.query.search) || [];
-        if (!hits.length) { lookupBox.innerHTML = '<div class="lr-status">No matches — just fill it in manually.</div>'; return; }
-        lookupBox.innerHTML = hits.map(function (h) {
-          var snip = (h.snippet || "").replace(/<[^>]+>/g, "").slice(0, 90);
-          return '<button type="button" data-key="' + esc(h.title) + '"><span class="lr-title">' + esc(h.title) +
-            '</span><span class="lr-desc">' + esc(snip) + "…</span></button>";
-        }).join("");
-      })
-      .catch(function () { lookupBox.innerHTML = '<div class="lr-status">Lookup needs internet — works on the live site.</div>'; });
+    var base = "https://en.wikipedia.org/w/api.php?action=query&list=search&srlimit=12&format=json&origin=*&srsearch=";
+    var suffix = domain === "screen" ? " film" : "";
+    var plain = qv + suffix;
+    var rich = qv + (sub ? " " + sub : "") + (yr ? " " + yr : "") + suffix;
+    var reqs = [fetch(base + encodeURIComponent(plain)).then(function (r) { return r.json(); })];
+    if (rich !== plain) reqs.push(fetch(base + encodeURIComponent(rich)).then(function (r) { return r.json(); }));
+    Promise.all(reqs).then(function (js) {
+      var seen = {}, merged = [];
+      js.forEach(function (j) {
+        ((j.query && j.query.search) || []).forEach(function (h) { if (!seen[h.title]) { seen[h.title] = 1; merged.push(h); } });
+      });
+      renderLookupHits(rankHits(merged, sub, yr, domain).slice(0, 12));
+    }).catch(function () { lookupBox.innerHTML = '<div class="lr-status">Lookup needs internet — works on the live site.</div>'; });
   }
   function parseGenre(ex) {
     var m = ex.match(/\b(?:19|20)\d{2}\s+([A-Za-z][A-Za-z\s-]*?)\s+(?:film|television series|TV series|miniseries|sitcom|drama series)\b/);
