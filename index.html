@@ -83,6 +83,9 @@
   .collbar button { border: 1px solid var(--line); background: transparent; color: var(--ink-2); border-radius: 999px; padding: 6px 13px; font-size: 12px; font-weight: 600; cursor: pointer; letter-spacing: 0.3px; }
   .collbar button:hover { color: var(--accent); border-color: var(--accent); }
   .collbar button.active { background: var(--accent-soft); color: var(--ink); border-color: var(--accent); }
+  .collbar button.gen { color: var(--ink-3); font-weight: 500; }
+  .collbar button.gen.active { color: var(--ink); font-weight: 600; }
+  .cb-div { width: 1px; align-self: center; height: 20px; background: var(--line); margin: 0 4px; }
 
   .count { color: var(--ink-3); font-size: 13px; padding: 10px 0 14px; letter-spacing: 0.3px; }
   .count b { color: var(--accent); font-variant-numeric: tabular-nums; }
@@ -90,8 +93,11 @@
   .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; padding-bottom: 120px; align-items: start; }
   .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; cursor: pointer; transition: border-color 0.15s, transform 0.15s; }
   .card:hover { border-color: var(--accent); transform: translateY(-2px); }
-  .card-top { display: flex; gap: 12px; padding: 16px; }
-  .rail { width: 4px; align-self: stretch; border-radius: 4px; background: var(--accent); flex: none; }
+  .card-top { display: flex; gap: 14px; padding: 16px; }
+  .poster { width: 54px; min-width: 54px; height: 80px; border-radius: 8px; border: 1px solid var(--line); background: var(--accent-soft) center/cover no-repeat; display: grid; place-items: center; overflow: hidden; }
+  .poster .ph { font-size: 22px; opacity: 0.65; }
+  .poster.has-img { border-color: transparent; background-color: var(--surface-2); }
+  .poster.has-img .ph { display: none; }
   .card-body { flex: 1; min-width: 0; }
   .card h3 { font-family: var(--serif); font-style: italic; font-weight: 700; font-size: 19px; margin: 0 0 2px; line-height: 1.2; text-wrap: balance; }
   .card .meta { color: var(--ink-2); font-size: 13px; }
@@ -273,8 +279,64 @@
 (function () {
   "use strict";
 
-  var APP_VERSION = "0.3.0";
+  var APP_VERSION = "0.4.0";
   var yt = function (id) { return "https://www.youtube.com/watch?v=" + id; };
+
+  // Ordered emotional collections shown first in the filter bar; genres follow automatically.
+  var COLLECTION_ORDER = ["True Love", "Sorrow", "Mastery", "Inspirational", "Thought-Provoking"];
+
+  // Disambiguation hints so poster lookups hit the right Wikipedia article.
+  var WIKI = {
+    "Superman|1978": "Superman (1978 film)", "Man of Steel|2013": "Man of Steel (film)",
+    "Life|2017": "Life (2017 film)", "X-Men|2000": "X-Men (film)", "X2: X-Men United|2003": "X2 (film)",
+    "Titus|1999": "Titus (film)", "Prometheus|2012": "Prometheus (2012 film)",
+    "Wonder Woman|1975": "Wonder Woman (1975 TV series)", "Wonder Woman|2017": "Wonder Woman (2017 film)",
+    "Star Trek|2009": "Star Trek (film)", "Amy|2015": "Amy (2015 film)", "West Side Story|1961": "West Side Story (1961 film)",
+    "The Incredible Hulk|1977": "The Incredible Hulk (1977 TV series)", "Ambulance|2022": "Ambulance (2022 film)",
+    "The Twilight Saga: New Moon|2009": "The Twilight Saga: New Moon",
+    "Malcolm X|1992": "Malcolm X (1992 film)", "The Ten Commandments|1956": "The Ten Commandments (1956 film)",
+    "Kingdom of Heaven|2005": "Kingdom of Heaven (film)", "The Wolf of Wall Street|2013": "The Wolf of Wall Street (2013 film)",
+    "Memoirs of a Geisha|2005": "Memoirs of a Geisha (film)", "Into the Wild|2007": "Into the Wild (film)",
+    "The Witches of Eastwick|1987": "The Witches of Eastwick (film)", "Phone Booth|2002": "Phone Booth (film)",
+    "Six Million Dollar Man|1973": "The Six Million Dollar Man", "The Six Million Dollar Man|1973": "The Six Million Dollar Man",
+    "Our House|1970": "Our House (Crosby, Stills, Nash & Young song)", "America|1968": "America (Simon & Garfunkel song)",
+    "Daniel|1973": "Daniel (Elton John song)", "Scarborough Fair|1966": "Scarborough Fair/Canticle",
+    "Cats in the Cradle|1974": "Cat's in the Cradle", "Bridge Over Troubled Water|1970": "Bridge over Troubled Water (song)",
+    "Give Me Love (Give Me Peace on Earth)|1973": "Give Me Love (Give Me Peace on Earth)",
+    "Know That You Are Loved|": "Cleo Sol"
+  };
+
+  // Poster/image cache (Wikipedia lead images; works on real hosting, not the Claude sandbox).
+  var IMGKEY = "marquee.img.v1", imgCache;
+  try { imgCache = JSON.parse(localStorage.getItem(IMGKEY)) || {}; } catch (e) { imgCache = {}; }
+  function saveImg() { try { localStorage.setItem(IMGKEY, JSON.stringify(imgCache)); } catch (e) {} }
+  function posterQuery(it) {
+    var key = it.title + "|" + (it.year || "");
+    if (WIKI[key]) return WIKI[key];
+    if (it.wiki) return it.wiki;
+    return it.title; // most unique titles resolve directly; ambiguous ones live in WIKI above
+  }
+  function paintPoster(el, url) {
+    var pre = new Image();
+    pre.onload = function () { el.style.backgroundImage = "url('" + url + "')"; el.classList.add("has-img"); };
+    pre.src = url; // keep the placeholder until the real image is decoded
+  }
+  function loadPoster(it) {
+    var q = posterQuery(it);
+    var el = document.querySelector('.poster[data-pid="' + it.id + '"]');
+    if (!el) return;
+    if (Object.prototype.hasOwnProperty.call(imgCache, q)) {
+      if (imgCache[q]) paintPoster(el, imgCache[q]);
+      return;
+    }
+    fetch("https://en.wikipedia.org/api/rest_v1/page/summary/" + encodeURIComponent(q))
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) {
+        var url = j && j.thumbnail && j.thumbnail.source ? j.thumbnail.source : null;
+        imgCache[q] = url; saveImg();
+        if (url) paintPoster(el, url);
+      }).catch(function () {});
+  }
 
   // ---------- Seed data ----------
   var SEED = [
@@ -310,7 +372,7 @@
       note:"Filmed in a containment tank at an unfinished nuclear plant. Ed Harris nearly drowned. Its water 'pseudopod' was a landmark in computer-generated effects that led straight to Terminator 2."},
     {d:"screen",type:"Movie",title:"The Wolf of Wall Street",sub:"Martin Scorsese · Leonardo DiCaprio",year:2013,genre:["Biography","Dark Comedy","Crime"],
       note:"Holds the record for the most profanity in a mainstream scripted film — over 500 f-words in three hours."},
-    {d:"screen",type:"Movie",title:"Forrest Gump",sub:"Robert Zemeckis · Tom Hanks",year:1994,genre:["Drama","Comedy"],
+    {d:"screen",type:"Movie",title:"Forrest Gump",sub:"Robert Zemeckis · Tom Hanks",year:1994,genre:["Drama","Comedy"],collection:"Inspirational",
       note:"Won Best Picture. Tom Hanks took part of his fee as stock in the film instead of salary and reportedly earned around $60 million."},
     {d:"screen",type:"Movie",title:"Titus",sub:"Julie Taymor · Anthony Hopkins",year:1999,genre:["History","Tragedy"],
       note:"The film debut of theater director Julie Taymor — she'd just staged The Lion King on Broadway. It adapts Shakespeare's bloodiest, most violent play, Titus Andronicus."},
@@ -318,10 +380,12 @@
       note:"Directed by George Miller — yes, the Mad Max director. Adapted from John Updike's novel, with Nicholson gleefully playing the literal devil."},
     {d:"screen",type:"Movie",title:"Dead Presidents",sub:"The Hughes Brothers · Larenz Tate",year:1995,genre:["Crime","Drama","War"],
       note:"The title is slang for cash (the faces on U.S. bills). Its heist scene with white-and-black face paint became one of the most iconic images of '90s cinema."},
-    {d:"screen",type:"Movie",title:"Malcolm X",sub:"Spike Lee · Denzel Washington",year:1992,genre:["Biography","Drama"],
+    {d:"screen",type:"Movie",title:"Malcolm X",sub:"Spike Lee · Denzel Washington",year:1992,genre:["Biography","Drama"],collection:"Inspirational",
       note:"Denzel earned a Best Actor nomination. Spike Lee closed the film with Nelson Mandela himself appearing as a Soweto schoolteacher."},
     {d:"screen",type:"Movie",title:"Superman",sub:"Richard Donner · Christopher Reeve",year:1978,genre:["Superhero","Adventure"],
       note:"'You'll believe a man can fly' — the film that invented the modern superhero blockbuster. Marlon Brando was paid a then-record sum for about ten minutes as Jor-El. (Tell me if you meant the 2025 reboot.)"},
+    {d:"screen",type:"Movie",title:"Man of Steel",sub:"Zack Snyder · Henry Cavill",year:2013,genre:["Superhero","Action","Sci-Fi"],
+      note:"Christopher Nolan produced this darker Superman reboot, and Hans Zimmer's soaring score replaced John Williams' classic march. The Krypton prologue and the Smallville tornado are its signature beats — it launched the DC Extended Universe."},
     {d:"screen",type:"Movie",title:"X-Men",sub:"Bryan Singer",year:2000,genre:["Superhero","Action"],
       note:"Widely credited with launching the modern comic-book movie era, a year before Spider-Man. (You mentioned two X-Men films — I seeded the first two; tell me which pair you meant.)"},
     {d:"screen",type:"Movie",title:"X2: X-Men United",sub:"Bryan Singer",year:2003,genre:["Superhero","Action"],
@@ -332,11 +396,11 @@
       note:"'We can rebuild him. We have the technology.' The 'ch-ch-ch' bionic sound effect became pop-culture shorthand and spun off The Bionic Woman."},
     {d:"screen",type:"TV Series",title:"Wonder Woman",sub:"Lynda Carter",year:1975,genre:["Superhero","Action"],
       note:"Lynda Carter's spinning transformation into Wonder Woman became one of TV's most iconic images. The show began in WWII, then jumped to the then-present '70s."},
-    {d:"screen",type:"Movie",title:"Inception",sub:"Christopher Nolan · Leonardo DiCaprio",year:2010,genre:["Sci-Fi","Heist","Thriller"],
+    {d:"screen",type:"Movie",title:"Inception",sub:"Christopher Nolan · Leonardo DiCaprio",year:2010,genre:["Sci-Fi","Heist","Thriller"],collection:"Thought-Provoking",
       note:"The rotating-hallway fight was filmed in a real spinning set. Hans Zimmer's 'BRAAAM' reshaped a decade of movie-trailer sound — and the top never quite stops spinning."},
     {d:"screen",type:"Movie",title:"Wonder Woman",sub:"Patty Jenkins · Gal Gadot",year:2017,genre:["Superhero","Action"],
       note:"The first blockbuster of the modern superhero era led by a woman and directed by one. The No Man's Land sequence is its signature moment."},
-    {d:"screen",type:"Movie",title:"Prometheus",sub:"Ridley Scott",year:2012,genre:["Sci-Fi","Horror"],
+    {d:"screen",type:"Movie",title:"Prometheus",sub:"Ridley Scott",year:2012,genre:["Sci-Fi","Horror"],collection:"Thought-Provoking",
       note:"Ridley Scott's return to the Alien universe, 33 years after the original. Michael Fassbender based the android David on Peter O'Toole in Lawrence of Arabia."},
     {d:"screen",type:"Movie",title:"West Side Story",sub:"Robert Wise & Jerome Robbins",year:1961,genre:["Musical","Romance","Drama"],
       note:"Won 10 Academy Awards — still the most ever for a musical. Natalie Wood's singing voice was dubbed by Marni Nixon, Hollywood's 'ghost singer.'"},
@@ -352,6 +416,9 @@
       note:"Rebooted the franchise with an alternate 'Kelvin timeline.' Leonard Nimoy returned as the original Spock — and yes, the lens flares are legendary."},
     {d:"screen",type:"Movie",title:"Star Trek Into Darkness",sub:"J.J. Abrams",year:2013,genre:["Sci-Fi","Action"],
       note:"The follow-up to the 2009 reboot. The studio spent months denying that Benedict Cumberbatch's villain was Khan — right up until the reveal."},
+    {d:"screen",type:"Movie",title:"The Twilight Saga: New Moon",sub:"Chris Weitz · Kristen Stewart, Robert Pattinson",year:2009,genre:["Romance","Fantasy","Drama"],
+      note:"The second Twilight film. Its most striking sequence: the vampire Victoria chased across the Forks woods and off a seaside cliff while Thom Yorke's synthy 'Hearing Damage' floats over it — a song Radiohead's frontman wrote specifically for this soundtrack. (You identified this one from just the scene + song — exactly the kind of memory search we're building.)",
+      highlights:[{label:"Victoria chase — 'Hearing Damage' (Thom Yorke)",url:yt("mF2Mc3mbIvI")}]},
 
     // ===== SOUND =====
     {d:"sound",type:"Artist",title:"Simon & Garfunkel",sub:"Paul Simon, Art Garfunkel",year:1964,genre:["Folk Rock"],
@@ -441,12 +508,19 @@
     ];
   }
 
-  function collections() {
-    var set = [];
+  function domainCollections() {
+    var present = {};
+    allItems().forEach(function (it) { if (it.d === state.domain && it.collection) present[it.collection] = 1; });
+    var ordered = COLLECTION_ORDER.filter(function (c) { return present[c]; });
+    Object.keys(present).forEach(function (c) { if (ordered.indexOf(c) === -1) ordered.push(c); });
+    return ordered;
+  }
+  function domainGenres() {
+    var counts = {};
     allItems().forEach(function (it) {
-      if (it.d === state.domain && it.collection && set.indexOf(it.collection) === -1) set.push(it.collection);
+      if (it.d === state.domain) (it.genre || []).forEach(function (g) { counts[g] = (counts[g] || 0) + 1; });
     });
-    return set;
+    return Object.keys(counts).sort(function (a, b) { return counts[b] - counts[a] || a.localeCompare(b); });
   }
   function allCollections() {
     var set = [];
@@ -457,7 +531,7 @@
   function currentList() {
     var q = state.q.trim().toLowerCase();
     var list = allItems().filter(function (it) { return it.d === state.domain; });
-    if (state.coll) list = list.filter(function (it) { return it.collection === state.coll; });
+    if (state.coll) list = list.filter(function (it) { return it.collection === state.coll || (it.genre || []).indexOf(state.coll) !== -1; });
     if (q) {
       list = list.filter(function (it) {
         var hay = it.title + " " + (it.sub || "") + " " + (it.genre || []).join(" ") + " " +
@@ -509,13 +583,13 @@
     var list = currentList();
     var content = $("#content");
 
-    // collection filter bar
-    var colls = collections();
-    var cb = $("#collbar");
-    if (colls.length) {
-      cb.innerHTML = '<button class="' + (state.coll === "" ? "active" : "") + '" data-coll="">All</button>' +
-        colls.map(function (c) { return '<button class="' + (state.coll === c ? "active" : "") + '" data-coll="' + esc(c) + '">' + esc(c) + "</button>"; }).join("");
-    } else { cb.innerHTML = ""; }
+    // filter bar: curated collections first, then genres
+    var colls = domainCollections(), gens = domainGenres();
+    var cbHtml = '<button class="' + (state.coll === "" ? "active" : "") + '" data-coll="">All</button>';
+    colls.forEach(function (c) { cbHtml += '<button class="' + (state.coll === c ? "active" : "") + '" data-coll="' + esc(c) + '">' + esc(c) + "</button>"; });
+    if (colls.length && gens.length) cbHtml += '<span class="cb-div"></span>';
+    gens.forEach(function (g) { cbHtml += '<button class="gen ' + (state.coll === g ? "active" : "") + '" data-coll="' + esc(g) + '">' + esc(g) + "</button>"; });
+    $("#collbar").innerHTML = cbHtml;
 
     $("#count").innerHTML = "<b>" + list.length + "</b> " +
       (state.domain === "screen" ? "films &amp; shows" : "artists &amp; songs") +
@@ -538,12 +612,14 @@
         var hn = (it.highlights || []).length;
         var hint = hn ? '<div class="moment-hint">▶ ' + hn + " signature moment" + (hn > 1 ? "s" : "") + "</div>" : "";
         return '<div class="card' + open + '" data-id="' + it.id + '">' +
-          '<div class="card-top"><div class="rail"></div><div class="card-body">' +
+          '<div class="card-top"><div class="poster" data-pid="' + it.id + '"><span class="ph">' + (it.d === "screen" ? "🎬" : "♪") + "</span></div>" +
+          '<div class="card-body">' +
           "<h3>" + esc(it.title) + "</h3>" +
           (it.sub ? '<div class="meta">' + esc(it.sub) + "</div>" : "") +
           '<div class="chips">' + chips + "</div>" + hint + "</div></div>" +
           detailHTML(it) + "</div>";
       }).join("") + "</div>";
+      list.forEach(loadPoster);
     } else {
       function th(key, label) {
         var s = state.sortKey === key ? "sorted" : "";
