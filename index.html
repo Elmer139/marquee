@@ -112,7 +112,9 @@
   .chip.type { background: var(--accent-soft); border-color: transparent; color: var(--ink); }
   .chip.coll { border-style: dashed; border-color: var(--accent); color: var(--accent); cursor: pointer; }
   .chip.coll:hover { background: var(--accent-soft); }
-  .moment-hint { margin-top: auto; padding-top: 10px; font-size: 12px; font-weight: 600; color: var(--accent); display: flex; align-items: center; gap: 5px; }
+  .card-bottom { margin-top: auto; padding-top: 10px; }
+  .logline { font-family: var(--serif); font-style: italic; font-size: 13.5px; color: var(--ink-2); line-height: 1.35; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .moment-hint { margin-top: 6px; font-size: 12px; font-weight: 600; color: var(--accent); display: flex; align-items: center; gap: 5px; }
 
   /* Detail overlay */
   .detail-modal { position: relative; }
@@ -204,6 +206,8 @@
   .title-row { display: flex; gap: 8px; }
   .title-row input { flex: 1; }
   .lookup-btn { flex: none; border: 1px solid var(--accent); background: var(--accent-soft); color: var(--accent); border-radius: 10px; padding: 0 14px; font-size: 13px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+  .story-btn { margin-top: 8px; align-self: flex-start; border: 1px solid var(--accent); background: var(--accent-soft); color: var(--accent); border-radius: 10px; padding: 9px 14px; font-size: 13px; font-weight: 700; cursor: pointer; font-family: var(--sans); }
+  .story-btn:disabled { opacity: 0.7; cursor: default; }
   .lookup-btn:disabled { opacity: 0.6; cursor: default; }
   .lookup-results { display: none; margin-top: 8px; border: 1px solid var(--line); border-radius: 10px; overflow-x: hidden; overflow-y: auto; max-height: 264px; }
   .lookup-results.show { display: block; }
@@ -313,8 +317,13 @@
         <datalist id="collList"></datalist>
       </div>
       <div class="field">
-        <label id="lblNote">Fun fact / trivia</label>
-        <textarea name="note" placeholder="Something notable, historic, or genre-changing…"></textarea>
+        <label>One-line vibe <span class="hint">(shown on the card — e.g. “touching war story”)</span></label>
+        <input name="logline" placeholder="betrayal at the riskiest expense">
+      </div>
+      <div class="field">
+        <label id="lblNote">Fun fact / trivia <span class="hint">(the story — the heart of the card)</span></label>
+        <textarea name="note" placeholder="The moving, little-known story most people don't know…"></textarea>
+        <button type="button" class="story-btn" id="storyBtn">✨ Get the story</button>
       </div>
       <div class="field">
         <label id="lblTrailer">Exact trailer / clip link <span class="hint">(optional — paste the real link so it never lands on the wrong title)</span></label>
@@ -348,7 +357,7 @@
 (function () {
   "use strict";
 
-  var APP_VERSION = "0.9.4";
+  var APP_VERSION = "0.9.5";
   var yt = function (id) { return "https://www.youtube.com/watch?v=" + id; };
 
   // The way the user navigates: by FEELING. Moods show first in the filter bar (in this order),
@@ -419,6 +428,64 @@
     if (it.collection && m.indexOf(it.collection) === -1) m.unshift(it.collection);
     return m;
   }
+
+  // One-line "vibe" shown at the bottom of each card — the feel at a glance.
+  var LOGLINES = {
+    "Shakespeare in Love|1998": "Forbidden love behind the curtain",
+    "Life Is Beautiful|1997": "A father's love outshines the darkness",
+    "Memoirs of a Geisha|2005": "Beauty, longing, and survival",
+    "Into the Wild|2007": "Off the map, chasing meaning",
+    "Schindler's List|1993": "One list, twelve hundred lives",
+    "Good Will Hunting|1997": "A genius who won't let anyone in",
+    "Amy|2015": "A voice the world couldn't protect",
+    "Life|2017": "Trapped in orbit with something alive",
+    "Ambulance|2022": "A heist that never stops moving",
+    "The Cloverfield Paradox|2018": "An experiment tears reality open",
+    "The Abyss|1989": "First contact in the crushing deep",
+    "The Wolf of Wall Street|2013": "Greed at full, reckless throttle",
+    "Forrest Gump|1994": "An ordinary man, an extraordinary life",
+    "Titus|1999": "Shakespeare at his bloodiest",
+    "The Witches of Eastwick|1987": "Three women summon the devil",
+    "Dead Presidents|1995": "Vets who came home to nothing",
+    "Malcolm X|1992": "The making of a firebrand",
+    "Superman|1978": "You'll believe a man can fly",
+    "Man of Steel|2013": "A darker last son of Krypton",
+    "X-Men|2000": "Feared for how they were born",
+    "X2: X-Men United|2003": "Mutants and humans, one enemy",
+    "The Incredible Hulk|1977": "A lonely man running from his rage",
+    "The Six Million Dollar Man|1973": "Rebuilt better, stronger, faster",
+    "Wonder Woman|1975": "An Amazon among us",
+    "Inception|2010": "A heist inside the dreaming mind",
+    "Wonder Woman|2017": "A hero forged in No Man's Land",
+    "Prometheus|2012": "Searching the stars for our makers",
+    "West Side Story|1961": "Star-crossed love on the streets",
+    "The Ten Commandments|1956": "Let my people go",
+    "Kingdom of Heaven|2005": "Faith and blood over Jerusalem",
+    "Phone Booth|2002": "One call he can't hang up",
+    "Scanners|1981": "Minds that kill",
+    "Star Trek|2009": "The crew before the legend",
+    "Star Trek Into Darkness|2013": "The enemy was one of their own",
+    "The Twilight Saga: New Moon|2009": "Love that aches across the dark",
+    "Simon & Garfunkel|1964": "Harmony that defined a generation",
+    "Tame Impala|2010": "One mind, a psychedelic universe",
+    "The Doors|1965": "Poetry, danger, and the edge",
+    "The Beatles|1960": "The band that changed everything",
+    "Elton John|1969": "Piano-man showmanship and heart",
+    "Our House|1970": "Love in a very fine house",
+    "Scarborough Fair|1966": "An ancient ballad, an anti-war whisper",
+    "Cats in the Cradle|1974": "The father who ran out of time",
+    "Bridge Over Troubled Water|1970": "A hymn for when you're weary",
+    "Know That You Are Loved|": "A hushed, spiritual reassurance",
+    "The Only Living Boy in New York|1970": "Missing a friend who flew away",
+    "Daniel|1973": "A brother we never fully meet",
+    "America|1968": "Searching a country for its soul",
+    "Teach Your Children|1970": "Pass on love, not fear",
+    "Spirit in the Sky|1969": "A fuzzed-out prayer",
+    "Give Me Love (Give Me Peace on Earth)|1973": "A quiet plea for peace",
+    "California Dreamin'|1965": "Longing for warmth in the cold",
+    "Bohemian Rhapsody|1975": "Six minutes that broke every rule"
+  };
+  function loglineOf(it) { return it.logline || LOGLINES[it.title + "|" + (it.year || "")] || ""; }
 
   // Disambiguation hints so poster lookups hit the right Wikipedia article.
   var WIKI = {
@@ -892,12 +959,15 @@
           shown.join("") + (moreN > 0 ? '<span class="chip more">+' + moreN + "</span>" : "");
         var hn = (it.highlights || []).length;
         var hint = hn ? '<div class="moment-hint">▶ ' + hn + " signature moment" + (hn > 1 ? "s" : "") + "</div>" : "";
+        var logline = loglineOf(it);
+        var bottom = '<div class="card-bottom">' +
+          (logline ? '<div class="logline">' + esc(logline) + "</div>" : "") + hint + "</div>";
         return '<div class="card" data-id="' + it.id + '">' +
           '<div class="card-top"><div class="poster" data-pid="' + it.id + '" style="' + posterFallbackStyle(it.title) + '"><span class="ph">' + esc(monogram(it.title)) + "</span></div>" +
           '<div class="card-body">' +
           "<h3>" + esc(it.title) + "</h3>" +
           (it.sub ? '<div class="meta">' + esc(it.sub) + "</div>" : "") +
-          '<div class="chips">' + chips + "</div>" + hint + "</div></div></div>";
+          '<div class="chips">' + chips + "</div>" + bottom + "</div></div></div>";
       }).join("") + "</div>";
       list.forEach(loadPoster);
     } else {
@@ -1111,7 +1181,7 @@
       $("#submitBtn").textContent = "Save changes";
       setField("title", item.title); setField("sub", item.sub); setField("year", item.year);
       setField("type", item.type); setField("genre", (item.genre || []).join(", "));
-      setField("moods", moodsOf(item).join(", ")); setField("note", item.note); setField("trailer", item.trailer); setField("posterUrl", item.img);
+      setField("moods", moodsOf(item).join(", ")); setField("note", item.note); setField("trailer", item.trailer); setField("posterUrl", item.img); setField("logline", loglineOf(item));
       var hl = item.highlights || [];
       setField("hl_label_1", hl[0] ? hl[0].label : ""); setField("hl_url_1", hl[0] ? hl[0].url : "");
       setField("hl_label_2", hl[1] ? hl[1].label : ""); setField("hl_url_2", hl[1] ? hl[1].url : "");
@@ -1303,6 +1373,28 @@
       })
       .catch(function () { lookupBox.innerHTML = '<div class="lr-status">Could not load that one.</div>'; });
   }
+  $("#storyBtn").addEventListener("click", function () {
+    var btn = this;
+    var title = (form.querySelector('[name="title"]').value || "").trim();
+    if (!title) { form.querySelector('[name="title"]').focus(); return; }
+    var domain = (form.querySelector('input[name="domain"]:checked') || {}).value || "screen";
+    var type = ($("#typeSelect") || {}).value || "";
+    var kind = domain === "sound" ? (type === "Artist" || type === "Band" ? "artist" : "song") : (type === "TV Series" ? "tv" : "movie");
+    var sub = (form.querySelector('[name="sub"]').value || "").trim();
+    var year = (form.querySelector('[name="year"]').value || "").trim();
+    btn.disabled = true; btn.textContent = "✨ Finding the story…";
+    fetch("/api/story?title=" + encodeURIComponent(title) + "&kind=" + kind + "&sub=" + encodeURIComponent(sub) + "&year=" + encodeURIComponent(year))
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        btn.disabled = false; btn.textContent = "✨ Get the story";
+        if (!j || j.configured === false) { btn.textContent = "✨ Needs a Gemini key (free) — ask Claude"; setTimeout(function () { btn.textContent = "✨ Get the story"; }, 3000); return; }
+        if (j.error) { btn.textContent = "Hmm, try again"; setTimeout(function () { btn.textContent = "✨ Get the story"; }, 2500); return; }
+        if (j.story) {
+          if (j.story.logline) setField("logline", j.story.logline);
+          if (j.story.trivia) setField("note", j.story.trivia);
+        }
+      }).catch(function () { btn.disabled = false; btn.textContent = "✨ Get the story"; });
+  });
   $("#lookupBtn").addEventListener("click", runLookup);
   lookupBox.addEventListener("click", function (e) {
     var tb = e.target.closest("button[data-tmdbid]");
@@ -1338,6 +1430,7 @@
       genre: (f.get("genre") || "").split(",").map(function (s) { return s.trim(); }).filter(Boolean),
       moods: (f.get("moods") || "").split(",").map(function (s) { return s.trim(); }).filter(Boolean),
       note: (f.get("note") || "").trim(),
+      logline: (f.get("logline") || "").trim(),
       highlights: highlights
     };
     var trailer = (f.get("trailer") || "").trim();
