@@ -128,6 +128,9 @@
   .detail .label + .label { margin-top: 18px; }
   .hint2 { text-transform: none; letter-spacing: 0; color: var(--ink-3); font-weight: 400; }
   .detail p { margin: 0 0 6px; font-size: 14px; color: var(--ink); }
+  .funfact { margin: 4px 0 20px; padding: 16px 18px; border-left: 3px solid var(--accent); background: var(--accent-soft); border-radius: 0 12px 12px 0; }
+  .funfact .eyebrow { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 1.4px; color: var(--accent); font-weight: 700; margin-bottom: 8px; }
+  .funfact p { font-family: var(--serif); font-size: 16.5px; line-height: 1.55; margin: 0; color: var(--ink); text-wrap: pretty; }
   .providers { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: -2px 0 14px; }
   .providers:empty { display: none; }
   .prov-label { font-size: 11px; color: var(--ink-3); text-transform: uppercase; letter-spacing: 0.8px; }
@@ -345,7 +348,7 @@
 (function () {
   "use strict";
 
-  var APP_VERSION = "0.9.3";
+  var APP_VERSION = "0.9.4";
   var yt = function (id) { return "https://www.youtube.com/watch?v=" + id; };
 
   // The way the user navigates: by FEELING. Moods show first in the filter bar (in this order),
@@ -607,7 +610,7 @@
       note:"Matt Damon and Ben Affleck won the Original Screenplay Oscar for a script they wrote as unknowns; Robin Williams won Supporting Actor and improvised much of the park-bench monologue.",
       highlights:[{label:"Robin Williams' monologue",url:yt("8GY3sO47YYo")}]},
     {d:"screen",type:"Documentary",title:"Amy",sub:"Asif Kapadia · Amy Winehouse",year:2015,genre:["Music","Biography"],collection:"Mastery",
-      note:"Won the Best Documentary Oscar, built almost entirely from home videos and archival footage of Amy Winehouse — no on-camera interviews. A devastating portrait of talent and fame.",
+      note:"Won the Best Documentary Oscar, built almost entirely from home videos and archival footage — no on-camera interviews. Its most piercing moment: at the 2008 Grammys, visa problems kept Amy in London, so she performed by satellite. Then they read the winners — and she'd won five, including Record of the Year for 'Rehab,' beating Beyoncé and Rihanna. The cameras caught her frozen, then turning to hug her mum, unable to believe it.",
       highlights:[{label:"The 'happy birthday' scene",url:yt("wqmwcEtU2Js")},{label:"Full documentary (Netflix)",url:"https://www.netflix.com/title/80049094"}]},
     {d:"screen",type:"Movie",title:"Life",sub:"Daniel Espinosa · Ryan Reynolds, Jake Gyllenhaal",year:2017,genre:["Sci-Fi","Horror","Thriller"],
       note:"A claustrophobic 'trapped on a space station with a growing alien' thriller. A popular fan theory claimed it was a secret Venom prequel — the writers said no, but happily played along."},
@@ -688,16 +691,16 @@
       note:"Based on a poem by Chapin's wife Sandy about a father who's always too busy — until the roles reverse. His only #1 hit; Chapin died in a car crash in 1981 at 38, a tireless anti-hunger activist.",
       highlights:[{label:"The song",url:yt("1E3wDxuW_vs")}]},
     {d:"sound",type:"Song",title:"Bridge Over Troubled Water",sub:"Simon & Garfunkel",year:1970,genre:["Folk Rock","Gospel"],collection:"Tear Jerkers",
-      note:"Art Garfunkel sings lead; Paul Simon later admitted he sometimes regretted giving the song away. It swept the 1971 Grammys, winning Record and Song of the Year.",
+      note:"Paul Simon wrote it; Art Garfunkel's soaring lead turned it into a hymn. It's been covered by nearly everyone — Aretha Franklin, Elvis, Johnny Cash — so often that people swear they first heard it from someone else. But the original that all of them were chasing is Simon & Garfunkel's. Simon later admitted he sometimes regretted handing a song that big to Art's voice instead of his own.",
       highlights:[{label:"Live performance",url:"https://youtu.be/88jNS7MCrf4?t=3278"}]},
     {d:"sound",type:"Song",title:"Know That You Are Loved",sub:"Cleo Sol",year:null,genre:["Soul","Neo-Soul"],collection:"Tear Jerkers",
       note:"Cleo Sol is widely credited as the lead voice of SAULT (all-caps, pronounced 'salt') — the acclaimed, deliberately anonymous British collective helmed by producer Inflo, her partner. SAULT never officially confirms its lineup, but her vocals are unmistakable across their albums. (This is her live performance.)",
       highlights:[{label:"Live (full length)",url:yt("OJpJo6Gm4lA")}]},
     {d:"sound",type:"Song",title:"The Only Living Boy in New York",sub:"Simon & Garfunkel",year:1970,genre:["Folk Rock"],collection:"Tear Jerkers",
-      note:"Paul Simon wrote it for Art Garfunkel — 'Tom' was Art's stage name in their teenage duo Tom & Jerry — as Art left to act in the film Catch-22. The soaring wordless choir is the two of them singing 'aah' into an echo chamber, layered many times over.",
+      note:"Paul Simon wrote it for Art Garfunkel — 'Tom' was Art's old stage name from their teenage duo Tom & Jerry — when Art flew off to Mexico to act in the film Catch-22 and left Paul behind, aching in New York ('Tom, get your plane right on time'). That soaring wordless choir is just the two of them singing 'aah' into an echo chamber, layered over and over — a quiet heartbreak dressed up as a lullaby.",
       highlights:[{label:"The story behind it",url:yt("oF3kHrwWRPk")},{label:"The song",url:yt("jEEQh2Nv1x8")},{label:"The choir / 'aah' section",url:yt("a3PbXY02Sfs")}]},
     {d:"sound",type:"Song",title:"Daniel",sub:"Elton John",year:1973,genre:["Pop","Soft Rock"],collection:"Tear Jerkers",
-      note:"Bernie Taupin's lyric was about a war veteran going away; the final verse that explained the whole story was cut for length, leaving the song hauntingly ambiguous.",
+      note:"So who is Daniel? Bernie Taupin wrote him as a war-scarred Vietnam veteran — the narrator's older brother — leaving home to find some peace abroad, while everyone else only saw the medals. The final verse that spelled all of this out was cut to keep the single short, so most of us are left aching over a Daniel we never truly meet.",
       highlights:[{label:"The song",url:yt("Uc9soF6JkVg")}]},
     {d:"sound",type:"Song",title:"America",sub:"Simon & Garfunkel",year:1968,genre:["Folk Rock"],collection:"Tear Jerkers",
       note:"A young couple rides a Greyhound bus searching for the soul of the country. It famously has no rhyme scheme at all. Bernie Sanders later used it in a 2016 campaign ad.",
@@ -831,7 +834,7 @@
       (it.sub ? '<div class="meta">' + esc(it.sub) + "</div>" : "") +
       '<div class="chips">' + chipsHTML(it) + "</div></div></div>";
     out += '<div class="detail">';
-    if (it.note) out += '<div class="label">✦ Fun fact</div><p>' + esc(it.note) + "</p>";
+    if (it.note) out += '<div class="funfact"><span class="eyebrow">✦ The story</span><p>' + esc(it.note) + "</p></div>";
 
     if ((it.highlights || []).length) {
       var moments = it.highlights.map(function (h) {
