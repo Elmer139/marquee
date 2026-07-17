@@ -357,7 +357,7 @@
 (function () {
   "use strict";
 
-  var APP_VERSION = "0.9.8";
+  var APP_VERSION = "0.9.9";
   var yt = function (id) { return "https://www.youtube.com/watch?v=" + id; };
 
   // The way the user navigates: by FEELING. Moods show first in the filter bar (in this order),
@@ -1273,7 +1273,7 @@
       if (d.year) setField("year", d.year);
       if (d.sub) setField("sub", d.sub);
       if (d.genres && d.genres.length && !form.querySelector('[name="genre"]').value) setField("genre", d.genres.join(", "));
-      if (d.overview) setField("note", d.overview);
+      // note is left for the AI story (trivia > plot); "Get the story" or auto-backfill fills it
       var typeSel = $("#typeSelect"), want = kind === "tv" ? "TV Series" : "Movie";
       if (typeSel) for (var i = 0; i < typeSel.options.length; i++) if (typeSel.options[i].value === want) typeSel.selectedIndex = i;
       var ms = suggestMoods((d.genres || []).join(" ") + " " + (d.overview || ""));
@@ -1364,7 +1364,6 @@
         if (!j) { lookupBox.innerHTML = '<div class="lr-status">Could not load that one.</div>'; return; }
         var ex = j.extract || "";
         setField("title", (j.title || "").replace(/\s*\((?:[^()]*\b(?:film|song|album|TV series)\b[^()]*)\)\s*$/i, ""));
-        if (ex) setField("note", ex);
         var ym = ex.match(/\b(?:19|20)\d{2}\b/); if (ym) setField("year", ym[0]);
         if (domain === "screen") {
           var dm = ex.match(/directed by ([A-Z][^,.;]+?)(?:,| and | based | from |\.|;|$)/);
@@ -1467,7 +1466,7 @@
     document.querySelectorAll(".domain-tab").forEach(function (t) { t.classList.toggle("active", t.dataset.d === domain); });
     applyAccent(); closeModal(); render();
     if (wasEdit && resultId) openDetail(resultId); // reopen the detail so the change is visible
-    backfillMoods();
+    backfillMoods(); backfillStories();
   });
 
   // ---------- Auto-populate the "feel" on every card (once; respects later removals) ----------
@@ -1493,7 +1492,6 @@
           var ty = (pick.title || "").match(/\((\d{4})/); if (!it.year && ty) it.year = parseInt(ty[1], 10);
           // cast: enables a lead-actor photo when there's no poster
           if (!it.sub && ex) { var cm = ex.match(/\b(?:stars|starring|features) ([A-Z][^.]+?)(?:\.|,? and | as | in | under |$)/); if (cm) it.sub = cm[1].split(/,| and /).map(function (n) { return n.trim(); }).filter(Boolean).slice(0, 2).join(", "); }
-          if (!it.note && ex) it.note = ex;
           if (!it.img && s && s.thumbnail && s.thumbnail.source) it.img = s.thumbnail.source;
           var ms = suggestMoods(((it.genre || []).join(" ")) + " " + ex);
           it.moods = ms.length ? ms : [dflt];
@@ -1508,9 +1506,35 @@
     pending.forEach(function (it) {
       enrichMoods(it, function (changed) {
         if (changed) touched = true;
-        if (--remaining === 0) { save(); if (touched) render(); }
+        if (--remaining === 0) { save(); if (touched) render(); backfillStories(); }
       });
     });
+  }
+  // Auto-write the AI story (vibe + trivia) for user-added cards that don't have one yet.
+  var storiesBusy = false;
+  function backfillStories() {
+    if (storiesBusy) return;
+    var pending = userItems.filter(function (it) { return !it._storied && (!it.note || !it.logline); });
+    if (!pending.length) return;
+    storiesBusy = true;
+    var i = 0;
+    (function next() {
+      if (i >= pending.length) { storiesBusy = false; return; }
+      var it = pending[i];
+      var kind = it.d === "sound" ? (it.type === "Artist" || it.type === "Band" ? "artist" : "song") : (it.type === "TV Series" ? "tv" : "movie");
+      fetch("/api/story?title=" + encodeURIComponent(it.title) + "&kind=" + kind + (it.year ? "&year=" + it.year : "") + (it.sub ? "&sub=" + encodeURIComponent(it.sub) : ""))
+        .then(function (r) { return r.json(); })
+        .then(function (j) {
+          if (!j || j.configured === false || j.error) { storiesBusy = false; return; } // no key / rate-limited -> stop, retry next session
+          if (j.story) {
+            if (j.story.logline && !it.logline) it.logline = j.story.logline;
+            if (j.story.trivia && !it.note) it.note = j.story.trivia;
+            it._storied = true; save(); render();
+          }
+          i++; setTimeout(next, 1300); // gentle throttle for the free tier
+        })
+        .catch(function () { storiesBusy = false; });
+    })();
   }
 
   // ---------- Theme ----------
@@ -1532,5 +1556,6 @@
   applyAccent();
   render();
   backfillMoods();
+  backfillStories();
 })();
 </script>
