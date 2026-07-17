@@ -99,9 +99,9 @@
   .poster.has-img { border-color: transparent; }
   .poster.has-img .ph { display: none; }
   .poster.has-img { cursor: zoom-in; }
-  .lightbox { position: fixed; inset: 0; z-index: 60; background: rgba(8,8,10,0.88); display: none; align-items: center; justify-content: center; padding: 24px; cursor: zoom-out; }
+  .lightbox { position: fixed; inset: 0; z-index: 60; background: rgba(8,8,10,0.9); display: none; align-items: center; justify-content: center; padding: 12px; cursor: zoom-out; }
   .lightbox.open { display: flex; }
-  .lightbox img { max-width: 92vw; max-height: 92vh; border-radius: 10px; box-shadow: 0 12px 48px rgba(0,0,0,0.6); }
+  .lightbox img { width: 96vw; height: 94vh; object-fit: contain; border-radius: 8px; }
   .card-body { flex: 1; min-width: 0; display: flex; flex-direction: column; }
   .card h3 { font-family: var(--serif); font-style: italic; font-weight: 700; font-size: 19px; margin: 0 0 2px; line-height: 1.2; min-height: 2.4em; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
   .card .meta { color: var(--ink-2); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -333,7 +333,7 @@
 (function () {
   "use strict";
 
-  var APP_VERSION = "0.8.0";
+  var APP_VERSION = "0.8.1";
   var yt = function (id) { return "https://www.youtube.com/watch?v=" + id; };
 
   // The way the user navigates: by FEELING. Moods show first in the filter bar (in this order),
@@ -474,17 +474,45 @@
     if (Object.prototype.hasOwnProperty.call(imgCache, pk)) { cb(imgCache[pk]); return; }
     wikiThumb(name, function (url) { imgCache[pk] = url; saveImg(); cb(url); });
   }
+  function typeWord(it) {
+    if (it.d === "sound") return it.type === "Song" ? "song" : it.type === "Album" ? "album" : "band";
+    return it.type === "TV Series" ? "television series" : it.type === "Documentary" ? "documentary film" : "film";
+  }
+  // Pick the search result that matches the item's TYPE (and year, if known) — never a wrong same-name version.
+  function bestTypedHit(hits, it) {
+    var yr = String(it.year || "");
+    var typeRe = it.d === "sound" ? /\bsong\b|\balbum\b|\bsingle\b/i
+      : (it.type === "TV Series" || it.type === "Documentary") ? /tv series|television series|miniseries|serial/i
+        : /\(\d{4} film\)|\(film\)/i;
+    var i;
+    for (i = 0; i < hits.length; i++) { var t = hits[i].title.toLowerCase(); if (typeRe.test(t) && (!yr || t.indexOf(yr) > -1)) return hits[i]; }
+    if (it.d === "screen" && it.type === "Movie") return hits[0] || null; // a plain movie can take the top hit
+    return null; // otherwise don't guess — a wrong same-name page is worse than the monogram
+  }
+  // When the plain title has no poster, search for the right film/series page (handles disambiguated titles like "Obsession").
+  function tryPosterSearch(it, cb) {
+    var q = it.title + (it.year ? " " + it.year : "") + " " + typeWord(it);
+    var pk = "search:" + q;
+    if (Object.prototype.hasOwnProperty.call(imgCache, pk)) { cb(imgCache[pk]); return; }
+    fetch("https://en.wikipedia.org/w/api.php?action=query&list=search&srlimit=8&format=json&origin=*&srsearch=" + encodeURIComponent(q))
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        var hits = rankHits((j.query && j.query.search) || [], it.sub, String(it.year || ""), it.d);
+        var best = bestTypedHit(hits, it);
+        if (!best) { imgCache[pk] = null; saveImg(); cb(null); return; }
+        wikiThumb(best.title, function (url) { imgCache[pk] = url; saveImg(); cb(url); });
+      }).catch(function () { cb(null); });
+  }
   function resolvePoster(it, cb) {
     if (it.img) { cb(it.img); return; } // explicit image from lookup / TMDB
     var q = posterQuery(it);
-    if (Object.prototype.hasOwnProperty.call(imgCache, q)) {
-      if (imgCache[q]) { cb(imgCache[q]); return; }
-      tryPerson(it, cb); return; // no poster on file -> try a person photo
+    // chain: plain-title poster -> search for the right film/series poster -> lead actor/artist photo -> monogram
+    function afterDirect(url) {
+      if (url) { cb(url); return; }
+      tryPosterSearch(it, function (u2) { if (u2) { cb(u2); return; } tryPerson(it, cb); });
     }
-    wikiThumb(q, function (url) {
-      imgCache[q] = url; saveImg();
-      if (url) cb(url); else tryPerson(it, cb);
-    });
+    if (Object.prototype.hasOwnProperty.call(imgCache, q)) { afterDirect(imgCache[q]); return; }
+    wikiThumb(q, function (url) { imgCache[q] = url; saveImg(); afterDirect(url); });
   }
   function loadPoster(it) {
     var el = document.querySelector('.grid .poster[data-pid="' + it.id + '"]');
@@ -892,7 +920,7 @@
 
   // ---------- Lightbox (tap a poster to see it large) ----------
   var lightbox = $("#lightbox"), lightboxImg = $("#lightboxImg");
-  function bigImg(url) { return /upload\.wikimedia\.org/.test(url) ? url.replace(/\/\d+px-/, "/640px-") : url; }
+  function bigImg(url) { return /upload\.wikimedia\.org/.test(url) ? url.replace(/\/\d+px-/, "/1400px-") : url; }
   function openLightbox(url) {
     if (!url) return;
     lightboxImg.onerror = function () { lightboxImg.onerror = null; lightboxImg.src = url; }; // fall back if the upsized URL 404s
@@ -1193,16 +1221,20 @@
     var fromHave = suggestMoods(((it.genre || []).join(" ")) + " " + (it.note || ""));
     if (fromHave.length) { it.moods = fromHave; cb(true); return; }
     var base = "https://en.wikipedia.org/w/api.php?action=query&list=search&srlimit=8&format=json&origin=*&srsearch=";
-    var q = it.title + (it.year ? " " + it.year : "") + (it.d === "screen" ? " film" : "");
+    var q = it.title + (it.year ? " " + it.year : "") + " " + typeWord(it);
     fetch(base + encodeURIComponent(q)).then(function (r) { return r.json(); }).then(function (j) {
       var hits = rankHits((j.query && j.query.search) || [], it.sub, String(it.year || ""), it.d);
-      if (!hits.length) { it.moods = [dflt]; cb(true); return; }
-      return fetch("https://en.wikipedia.org/api/rest_v1/page/summary/" + encodeURIComponent(hits[0].title))
+      var pick = bestTypedHit(hits, it) || hits[0];
+      if (!pick) { it.moods = [dflt]; cb(true); return; }
+      return fetch("https://en.wikipedia.org/api/rest_v1/page/summary/" + encodeURIComponent(pick.title))
         .then(function (r) { return r.ok ? r.json() : null; })
         .then(function (s) {
           var ex = s ? (s.extract || "") : "";
           if (it.d === "screen" && (!it.genre || !it.genre.length)) { var g = parseGenre(ex); if (g) it.genre = [g]; }
-          if (!it.year && ex) { var ym = ex.match(/\b(?:19|20)\d{2}\b/); if (ym) it.year = parseInt(ym[0], 10); }
+          // year: take it from the page title (e.g. "(2023 TV series)"), NOT the blurb (which may cite a novel's year)
+          var ty = (pick.title || "").match(/\((\d{4})/); if (!it.year && ty) it.year = parseInt(ty[1], 10);
+          // cast: enables a lead-actor photo when there's no poster
+          if (!it.sub && ex) { var cm = ex.match(/\b(?:stars|starring) ([A-Z][^.]+?)(?:\.|,? and | as |$)/); if (cm) it.sub = cm[1].split(/,| and /).slice(0, 2).join(", ").replace(/\s+/g, " ").trim(); }
           if (!it.note && ex) it.note = ex;
           if (!it.img && s && s.thumbnail && s.thumbnail.source) it.img = s.thumbnail.source;
           var ms = suggestMoods(((it.genre || []).join(" ")) + " " + ex);
