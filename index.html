@@ -90,27 +90,36 @@
   .count { color: var(--ink-3); font-size: 13px; padding: 10px 0 14px; letter-spacing: 0.3px; }
   .count b { color: var(--accent); font-variant-numeric: tabular-nums; }
 
-  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; padding-bottom: 120px; align-items: start; }
-  .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; cursor: pointer; transition: border-color 0.15s, transform 0.15s; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; padding-bottom: 120px; align-items: stretch; }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; cursor: pointer; transition: border-color 0.15s, transform 0.15s; display: flex; flex-direction: column; }
   .card:hover { border-color: var(--accent); transform: translateY(-2px); }
-  .card-top { display: flex; gap: 14px; padding: 16px; }
+  .card-top { display: flex; gap: 14px; padding: 16px; flex: 1; }
   .poster { width: 54px; min-width: 54px; height: 80px; border-radius: 8px; border: 1px solid var(--line); background-color: var(--surface-2); background-size: cover; background-position: center; background-repeat: no-repeat; display: grid; place-items: center; overflow: hidden; }
   .poster .ph { font-family: var(--serif); font-style: italic; font-weight: 700; font-size: 21px; color: rgba(255,255,255,0.92); letter-spacing: 0.5px; text-shadow: 0 1px 3px rgba(0,0,0,0.28); }
   .poster.has-img { border-color: transparent; }
   .poster.has-img .ph { display: none; }
-  .card-body { flex: 1; min-width: 0; }
-  .card h3 { font-family: var(--serif); font-style: italic; font-weight: 700; font-size: 19px; margin: 0 0 2px; line-height: 1.2; text-wrap: balance; }
-  .card .meta { color: var(--ink-2); font-size: 13px; }
+  .card-body { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  .card h3 { font-family: var(--serif); font-style: italic; font-weight: 700; font-size: 19px; margin: 0 0 2px; line-height: 1.2; min-height: 2.4em; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .card .meta { color: var(--ink-2); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  .chip.more { color: var(--ink-3); border-style: dashed; }
   .chip { font-size: 11px; letter-spacing: 0.4px; text-transform: uppercase; color: var(--ink-2); border: 1px solid var(--line); border-radius: 999px; padding: 3px 9px; }
   .chip.year { font-family: var(--mono); font-variant-numeric: tabular-nums; letter-spacing: 0; color: var(--accent); border-color: var(--accent); }
   .chip.type { background: var(--accent-soft); border-color: transparent; color: var(--ink); }
   .chip.coll { border-style: dashed; border-color: var(--accent); color: var(--accent); cursor: pointer; }
   .chip.coll:hover { background: var(--accent-soft); }
-  .moment-hint { margin-top: 10px; font-size: 12px; font-weight: 600; color: var(--accent); display: flex; align-items: center; gap: 5px; }
+  .moment-hint { margin-top: auto; padding-top: 10px; font-size: 12px; font-weight: 600; color: var(--accent); display: flex; align-items: center; gap: 5px; }
 
-  .detail { border-top: 1px solid var(--line); padding: 14px 16px; display: none; background: var(--surface-2); }
-  .card.open .detail { display: block; }
+  /* Detail overlay */
+  .detail-modal { position: relative; }
+  .detail-modal .x { position: absolute; top: 12px; right: 14px; z-index: 3; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; width: 32px; height: 32px; }
+  .detail-head { display: flex; gap: 16px; padding: 22px 20px 16px; border-bottom: 1px solid var(--line); }
+  .poster.lg { width: 96px; min-width: 96px; height: 144px; border-radius: 10px; }
+  .poster.lg .ph { font-size: 40px; }
+  .detail-head-body { flex: 1; min-width: 0; }
+  .detail-title { font-family: var(--serif); font-style: italic; font-weight: 700; font-size: 24px; line-height: 1.15; margin: 2px 34px 6px 0; text-wrap: balance; }
+  .detail-head-body .meta { color: var(--ink-2); font-size: 14px; margin-bottom: 10px; }
+  .detail { padding: 18px 20px 22px; }
   .detail .label { font-size: 11px; text-transform: uppercase; letter-spacing: 1.2px; color: var(--ink-3); margin: 0 0 8px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
   .detail .label + .label { margin-top: 18px; }
   .hint2 { text-transform: none; letter-spacing: 0; color: var(--ink-3); font-weight: 400; }
@@ -303,16 +312,23 @@
   </div>
 </div>
 
+<div class="overlay" id="detailOverlay">
+  <div class="modal detail-modal">
+    <button class="x" id="closeDetail" aria-label="Close">×</button>
+    <div id="detailBody"></div>
+  </div>
+</div>
+
 <script>
 (function () {
   "use strict";
 
-  var APP_VERSION = "0.6.4";
+  var APP_VERSION = "0.7.0";
   var yt = function (id) { return "https://www.youtube.com/watch?v=" + id; };
 
   // The way the user navigates: by FEELING. Moods show first in the filter bar (in this order),
   // genres follow. Items can carry several moods at once.
-  var MOOD_ORDER = ["True Love", "Heartbreaking", "Sorrow", "Tear Jerkers", "Inspirational",
+  var MOOD_ORDER = ["True Love", "Heartbreaking", "Sorrow", "Tear Jerkers", "Funny", "Inspirational",
     "Thought-Provoking", "Spiritual", "Controversial", "Hidden Gem", "Mastery"];
 
   // Mood tags for the seeded catalog, keyed by "title|year" (kept here so the data stays tidy).
@@ -409,22 +425,24 @@
     pre.onload = function () { el.style.backgroundImage = "url('" + url + "')"; el.classList.add("has-img"); };
     pre.src = url; // keep the placeholder until the real image is decoded
   }
-  function loadPoster(it) {
-    var el = document.querySelector('.poster[data-pid="' + it.id + '"]');
-    if (!el) return;
-    if (it.img) { paintPoster(el, it.img); return; } // explicit image from lookup / TMDB
+  function resolvePoster(it, cb) {
+    if (it.img) { cb(it.img); return; } // explicit image from lookup / TMDB
     var q = posterQuery(it);
-    if (Object.prototype.hasOwnProperty.call(imgCache, q)) {
-      if (imgCache[q]) paintPoster(el, imgCache[q]);
-      return;
-    }
+    if (Object.prototype.hasOwnProperty.call(imgCache, q)) { cb(imgCache[q]); return; }
     fetch("https://en.wikipedia.org/api/rest_v1/page/summary/" + encodeURIComponent(q))
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (j) {
         var url = j && j.thumbnail && j.thumbnail.source ? j.thumbnail.source : null;
-        imgCache[q] = url; saveImg();
-        if (url) paintPoster(el, url);
-      }).catch(function () {});
+        imgCache[q] = url; saveImg(); cb(url);
+      }).catch(function () { cb(null); });
+  }
+  function loadPoster(it) {
+    var el = document.querySelector('.grid .poster[data-pid="' + it.id + '"]');
+    if (el) resolvePoster(it, function (url) { if (url) paintPoster(el, url); });
+  }
+  function loadDetailPoster(it) {
+    var el = document.querySelector("#detailBody .poster");
+    if (el) resolvePoster(it, function (url) { if (url) paintPoster(el, url); });
   }
 
   // ---------- Seed data ----------
@@ -564,7 +582,7 @@
   var KEY = "marquee.items.v1", THEMEKEY = "marquee.theme", DELKEY = "marquee.deletedSeeds.v1";
   var userItems = load();
   var deletedSeeds = loadDel();
-  var state = { domain: "screen", view: "grid", q: "", coll: "", sortKey: "title", sortDir: 1, open: {}, confirmDel: null };
+  var state = { domain: "screen", view: "grid", q: "", coll: "", sortKey: "title", sortDir: 1, detailId: null, confirmDel: null };
 
   function load() { try { return JSON.parse(localStorage.getItem(KEY)) || []; } catch (e) { return []; } }
   function save() { try { localStorage.setItem(KEY, JSON.stringify(userItems)); } catch (e) {} }
@@ -578,7 +596,7 @@
   function deleteItem(id) {
     if (id.charAt(0) === "s") { if (deletedSeeds.indexOf(id) === -1) { deletedSeeds.push(id); saveDel(); } }
     else { userItems = userItems.filter(function (x) { return x.id !== id; }); save(); }
-    delete state.open[id]; state.confirmDel = null;
+    state.confirmDel = null;
   }
   function byId(id) { return allItems().filter(function (x) { return x.id === id; })[0]; }
 
@@ -661,8 +679,19 @@
 
   var extIcon = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 17L17 7M17 7H8M17 7v9"/></svg>';
 
+  function chipsHTML(it) {
+    return '<span class="chip type">' + esc(it.type) + "</span>" +
+      (it.year ? '<span class="chip year">' + esc(it.year) + "</span>" : "") +
+      moodsOf(it).map(function (mo) { return '<span class="chip coll" data-coll="' + esc(mo) + '">' + esc(mo) + "</span>"; }).join("") +
+      (it.genre || []).map(function (g) { return '<span class="chip">' + esc(g) + "</span>"; }).join("");
+  }
   function detailHTML(it) {
-    var out = '<div class="detail">';
+    var out = '<div class="detail-head">' +
+      '<div class="poster lg" data-detailposter style="' + posterFallbackStyle(it.title) + '"><span class="ph">' + esc(monogram(it.title)) + "</span></div>" +
+      '<div class="detail-head-body"><h2 class="detail-title">' + esc(it.title) + "</h2>" +
+      (it.sub ? '<div class="meta">' + esc(it.sub) + "</div>" : "") +
+      '<div class="chips">' + chipsHTML(it) + "</div></div></div>";
+    out += '<div class="detail">';
     if (it.note) out += '<div class="label">✦ Fun fact</div><p>' + esc(it.note) + "</p>";
 
     if ((it.highlights || []).length) {
@@ -712,20 +741,20 @@
 
     if (state.view === "grid") {
       content.innerHTML = '<div class="grid">' + list.map(function (it) {
-        var open = state.open[it.id] ? " open" : "";
+        var extra = moodsOf(it).map(function (mo) { return '<span class="chip coll" data-coll="' + esc(mo) + '">' + esc(mo) + "</span>"; })
+          .concat((it.genre || []).map(function (g) { return '<span class="chip">' + esc(g) + "</span>"; }));
+        var CAP = 6, shown = extra.slice(0, CAP), moreN = extra.length - shown.length;
         var chips = '<span class="chip type">' + esc(it.type) + "</span>" +
           (it.year ? '<span class="chip year">' + esc(it.year) + "</span>" : "") +
-          moodsOf(it).map(function (mo) { return '<span class="chip coll" data-coll="' + esc(mo) + '">' + esc(mo) + "</span>"; }).join("") +
-          (it.genre || []).map(function (g) { return '<span class="chip">' + esc(g) + "</span>"; }).join("");
+          shown.join("") + (moreN > 0 ? '<span class="chip more">+' + moreN + "</span>" : "");
         var hn = (it.highlights || []).length;
         var hint = hn ? '<div class="moment-hint">▶ ' + hn + " signature moment" + (hn > 1 ? "s" : "") + "</div>" : "";
-        return '<div class="card' + open + '" data-id="' + it.id + '">' +
+        return '<div class="card" data-id="' + it.id + '">' +
           '<div class="card-top"><div class="poster" data-pid="' + it.id + '" style="' + posterFallbackStyle(it.title) + '"><span class="ph">' + esc(monogram(it.title)) + "</span></div>" +
           '<div class="card-body">' +
           "<h3>" + esc(it.title) + "</h3>" +
           (it.sub ? '<div class="meta">' + esc(it.sub) + "</div>" : "") +
-          '<div class="chips">' + chips + "</div>" + hint + "</div></div>" +
-          detailHTML(it) + "</div>";
+          '<div class="chips">' + chips + "</div>" + hint + "</div></div></div>";
       }).join("") + "</div>";
       list.forEach(loadPoster);
     } else {
@@ -742,8 +771,7 @@
           "<td>" + esc(it.type) + "</td>" +
           '<td class="t-year">' + (it.year || "—") + "</td>" +
           "<td>" + moodsOf(it).map(function (mo) { return '<span class="coll-tag" data-coll="' + esc(mo) + '">' + esc(mo) + "</span>"; }).join("") + esc((it.genre || []).join(", ")) + "</td></tr>";
-        var det = state.open[it.id] ? '<tr class="detail-row"><td colspan="4">' + detailHTML(it) + "</td></tr>" : "";
-        return main + det;
+        return main;
       }).join("");
       content.innerHTML = '<div class="table-scroll"><table><thead><tr>' +
         th("title", "Title") + th("type", "Type") + th("year", "Year") + th("genre", "Moods / Genre") +
@@ -793,12 +821,47 @@
     document.body.removeChild(ta);
   }
 
+  // ---------- Detail view (overlay) ----------
+  var detailOverlay = $("#detailOverlay");
+  function renderDetail() {
+    var it = byId(state.detailId);
+    if (!it) { closeDetail(); return; }
+    $("#detailBody").innerHTML = detailHTML(it);
+    loadDetailPoster(it);
+  }
+  function openDetail(id) {
+    state.detailId = id; state.confirmDel = null;
+    renderDetail();
+    detailOverlay.classList.add("open");
+  }
+  function closeDetail() {
+    detailOverlay.classList.remove("open");
+    state.detailId = null; state.confirmDel = null;
+  }
+  $("#closeDetail").addEventListener("click", closeDetail);
+  detailOverlay.addEventListener("click", function (e) {
+    if (e.target === detailOverlay) { closeDetail(); return; }
+    var shareBtn = e.target.closest("[data-share]");
+    if (shareBtn) { copyShare(byId(shareBtn.dataset.share), shareBtn); return; }
+    var delBtn = e.target.closest("[data-del]");
+    if (delBtn) { state.confirmDel = delBtn.dataset.del; renderDetail(); return; }
+    var delYes = e.target.closest("[data-delyes]");
+    if (delYes) { deleteItem(delYes.dataset.delyes); closeDetail(); render(); return; }
+    var delNo = e.target.closest("[data-delno]");
+    if (delNo) { state.confirmDel = null; renderDetail(); return; }
+    var editBtn = e.target.closest("[data-edit]");
+    if (editBtn) { var id = editBtn.dataset.edit; closeDetail(); openModal(byId(id)); return; }
+    if (e.target.closest("a")) return;
+    var collChip = e.target.closest("[data-coll]");
+    if (collChip) { state.coll = collChip.dataset.coll; closeDetail(); render(); return; }
+  });
+
   // ---------- Events ----------
   document.querySelectorAll(".domain-tab").forEach(function (tab) {
     tab.addEventListener("click", function () {
       document.querySelectorAll(".domain-tab").forEach(function (t) { t.classList.remove("active"); });
       tab.classList.add("active");
-      state.domain = tab.dataset.d; state.open = {}; state.coll = ""; state.confirmDel = null;
+      state.domain = tab.dataset.d; state.coll = ""; state.confirmDel = null; closeDetail();
       applyAccent(); render();
     });
   });
@@ -814,23 +877,13 @@
   $("#search").addEventListener("input", function (e) { state.q = e.target.value; render(); });
 
   $("#content").addEventListener("click", function (e) {
-    var shareBtn = e.target.closest("[data-share]");
-    if (shareBtn) { e.stopPropagation(); copyShare(byId(shareBtn.dataset.share), shareBtn); return; }
-    var delBtn = e.target.closest("[data-del]");
-    if (delBtn) { e.stopPropagation(); state.confirmDel = delBtn.dataset.del; render(); return; }
-    var delYes = e.target.closest("[data-delyes]");
-    if (delYes) { e.stopPropagation(); deleteItem(delYes.dataset.delyes); render(); return; }
-    var delNo = e.target.closest("[data-delno]");
-    if (delNo) { e.stopPropagation(); state.confirmDel = null; render(); return; }
-    var editBtn = e.target.closest("[data-edit]");
-    if (editBtn) { e.stopPropagation(); openModal(byId(editBtn.dataset.edit)); return; }
+    if (e.target.closest("a")) return;
     var collChip = e.target.closest("[data-coll]");
     if (collChip) { e.stopPropagation(); state.coll = collChip.dataset.coll; render(); return; }
-    if (e.target.closest("a")) return;
     var th = e.target.closest("th[data-sort]");
     if (th) { var k = th.dataset.sort; if (state.sortKey === k) state.sortDir *= -1; else { state.sortKey = k; state.sortDir = 1; } render(); return; }
     var host = e.target.closest("tr.row, .card");
-    if (host && host.dataset.id) { var id = host.dataset.id; state.open[id] = !state.open[id]; render(); }
+    if (host && host.dataset.id) openDetail(host.dataset.id);
   });
 
   // ---------- Modal ----------
@@ -883,7 +936,7 @@
   $("#closeModal").addEventListener("click", closeModal);
   overlay.addEventListener("click", function (e) { if (e.target === overlay) closeModal(); });
   form.querySelectorAll('input[name="domain"]').forEach(function (r) { r.addEventListener("change", function () { fillTypes(r.value); }); });
-  document.addEventListener("keydown", function (e) { if (e.key === "Escape") closeModal(); });
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape") { closeModal(); closeDetail(); } });
 
   // ----- Auto-fill lookup (keyless via Wikipedia; TMDB will supersede once its key is set) -----
   var lookupBox = $("#lookup");
@@ -941,6 +994,19 @@
     while (words.length > 1 && strip[words[0].toLowerCase()]) words.shift();
     return words.join(" ").replace(/\b\w/g, function (c) { return c.toUpperCase(); });
   }
+  // A light, editable mood suggestion from the genre/description, so a new card isn't blank & is filterable.
+  function suggestMoods(text) {
+    var g = (text || "").toLowerCase(), out = [];
+    function add(m) { if (out.indexOf(m) === -1) out.push(m); }
+    if (/romance|romantic/.test(g)) add("True Love");
+    if (/comedy|comic/.test(g)) add("Funny");
+    if (/\bwar\b/.test(g)) { add("Heartbreaking"); add("Thought-Provoking"); }
+    if (/document|biograph/.test(g)) { add("Inspirational"); add("Thought-Provoking"); }
+    if (/thriller|mystery|science fiction|sci-fi|dystopian/.test(g)) add("Thought-Provoking");
+    if (/horror/.test(g)) add("Controversial");
+    if (/\bdrama\b/.test(g) && !out.length) add("Heartbreaking");
+    return out;
+  }
   function pickLookup(pageKey) {
     var domain = (form.querySelector('input[name="domain"]:checked') || {}).value || "screen";
     lookupBox.innerHTML = '<div class="lr-status">Fetching details…</div>';
@@ -958,6 +1024,8 @@
           var g = parseGenre(ex);
           if (g && !form.querySelector('[name="genre"]').value) setField("genre", g);
         }
+        var ms = suggestMoods((parseGenre(ex) || "") + " " + ex);
+        if (ms.length && !form.querySelector('[name="moods"]').value) setField("moods", ms.join(", "));
         if (j.thumbnail && j.thumbnail.source) state.lookupImg = j.thumbnail.source;
         lookupBox.classList.remove("show"); lookupBox.innerHTML = "";
       })
@@ -1003,15 +1071,16 @@
     var img = state.lookupImg || (orig && orig.img) || null;
     if (img) fields.img = img;
 
+    var resultId = null, wasEdit = !!state.editId;
     if (state.editId && state.editId.charAt(0) === "s") {
       fields.id = "u" + Date.now(); userItems.push(fields);
       if (deletedSeeds.indexOf(state.editId) === -1) { deletedSeeds.push(state.editId); saveDel(); }
-      state.open[fields.id] = true;
+      resultId = fields.id;
     } else if (state.editId) {
       for (var i = 0; i < userItems.length; i++) {
         if (userItems[i].id === state.editId) { fields.id = state.editId; userItems[i] = fields; break; }
       }
-      state.open[state.editId] = true;
+      resultId = state.editId;
     } else {
       fields.id = "u" + Date.now(); userItems.push(fields);
     }
@@ -1019,6 +1088,7 @@
     state.domain = domain; state.coll = "";
     document.querySelectorAll(".domain-tab").forEach(function (t) { t.classList.toggle("active", t.dataset.d === domain); });
     applyAccent(); closeModal(); render();
+    if (wasEdit && resultId) openDetail(resultId); // reopen the detail so the change is visible
   });
 
   // ---------- Theme ----------
