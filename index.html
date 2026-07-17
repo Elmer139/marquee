@@ -357,7 +357,7 @@
 (function () {
   "use strict";
 
-  var APP_VERSION = "0.9.10";
+  var APP_VERSION = "0.9.11";
   var yt = function (id) { return "https://www.youtube.com/watch?v=" + id; };
 
   // The way the user navigates: by FEELING. Moods show first in the filter bar (in this order),
@@ -610,11 +610,11 @@
     var kind = it.type === "TV Series" ? "tv" : "movie";
     var ck = "tmdb:" + it.title + "|" + (it.year || "") + "|" + kind;
     if (Object.prototype.hasOwnProperty.call(imgCache, ck)) { cb(imgCache[ck]); return; }
-    tmdbApi("action=search&kind=multi&q=" + encodeURIComponent(it.title), function (j) {
+    // search by exact kind + year so generic titles ("Life") match the right film
+    tmdbApi("action=search&kind=" + kind + "&q=" + encodeURIComponent(it.title) + (it.year ? "&year=" + it.year : ""), function (j) {
       if (!j || j.configured === false || !j.results) { cb(null); return; }
-      var best = pickTmdbMatch(j.results, it);
-      var url = best ? best.poster : null;
-      imgCache[ck] = url; saveImg(); cb(url);
+      var best = pickTmdbMatch(j.results, it) || (j.results[0] && j.results[0].poster ? j.results[0] : null);
+      imgCache[ck] = best ? best.poster : null; saveImg(); cb(best ? best.poster : null);
     });
   }
   function wikiPosterChain(it, cb) {

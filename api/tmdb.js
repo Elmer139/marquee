@@ -14,7 +14,8 @@ export default async function handler(req, res) {
   try {
     if (action === "search") {
       const kind = q.kind === "tv" ? "tv" : q.kind === "movie" ? "movie" : "multi";
-      const r = await fetch(withKey("/search/" + kind, "include_adult=false&query=" + encodeURIComponent(q.q || "")));
+      const yr = (kind !== "multi" && q.year) ? "&" + (kind === "tv" ? "first_air_date_year" : "primary_release_year") + "=" + encodeURIComponent(q.year) : "";
+      const r = await fetch(withKey("/search/" + kind, "include_adult=false&query=" + encodeURIComponent(q.q || "") + yr));
       const j = await r.json();
       const results = (j.results || [])
         .filter((it) => kind !== "multi" || it.media_type === "movie" || it.media_type === "tv")
