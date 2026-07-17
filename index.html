@@ -94,9 +94,9 @@
   .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; cursor: pointer; transition: border-color 0.15s, transform 0.15s; }
   .card:hover { border-color: var(--accent); transform: translateY(-2px); }
   .card-top { display: flex; gap: 14px; padding: 16px; }
-  .poster { width: 54px; min-width: 54px; height: 80px; border-radius: 8px; border: 1px solid var(--line); background: var(--accent-soft) center/cover no-repeat; display: grid; place-items: center; overflow: hidden; }
-  .poster .ph { font-size: 22px; opacity: 0.65; }
-  .poster.has-img { border-color: transparent; background-color: var(--surface-2); }
+  .poster { width: 54px; min-width: 54px; height: 80px; border-radius: 8px; border: 1px solid var(--line); background-color: var(--surface-2); background-size: cover; background-position: center; background-repeat: no-repeat; display: grid; place-items: center; overflow: hidden; }
+  .poster .ph { font-family: var(--serif); font-style: italic; font-weight: 700; font-size: 21px; color: rgba(255,255,255,0.92); letter-spacing: 0.5px; text-shadow: 0 1px 3px rgba(0,0,0,0.28); }
+  .poster.has-img { border-color: transparent; }
   .poster.has-img .ph { display: none; }
   .card-body { flex: 1; min-width: 0; }
   .card h3 { font-family: var(--serif); font-style: italic; font-weight: 700; font-size: 19px; margin: 0 0 2px; line-height: 1.2; text-wrap: balance; }
@@ -303,7 +303,7 @@
 (function () {
   "use strict";
 
-  var APP_VERSION = "0.6.0";
+  var APP_VERSION = "0.6.1";
   var yt = function (id) { return "https://www.youtube.com/watch?v=" + id; };
 
   // The way the user navigates: by FEELING. Moods show first in the filter bar (in this order),
@@ -363,8 +363,8 @@
     "Superman|1978": "Superman (1978 film)", "Man of Steel|2013": "Man of Steel (film)",
     "Life|2017": "Life (2017 film)", "X-Men|2000": "X-Men (film)", "X2: X-Men United|2003": "X2 (film)",
     "Titus|1999": "Titus (film)", "Prometheus|2012": "Prometheus (2012 film)",
-    "Wonder Woman|1975": "Wonder Woman (1975 TV series)", "Wonder Woman|2017": "Wonder Woman (2017 film)",
-    "Star Trek|2009": "Star Trek (film)", "Amy|2015": "Amy (2015 film)", "West Side Story|1961": "West Side Story (1961 film)",
+    "Wonder Woman|1975": "Wonder Woman (TV series)", "Wonder Woman|2017": "Wonder Woman (2017 film)",
+    "Star Trek|2009": "Star Trek (2009 film)", "Amy|2015": "Amy (2015 film)", "West Side Story|1961": "West Side Story (1961 film)",
     "The Incredible Hulk|1977": "The Incredible Hulk (1977 TV series)", "Ambulance|2022": "Ambulance (2022 film)",
     "The Twilight Saga: New Moon|2009": "The Twilight Saga: New Moon",
     "Malcolm X|1992": "Malcolm X (1992 film)", "The Ten Commandments|1956": "The Ten Commandments (1956 film)",
@@ -388,6 +388,17 @@
     if (WIKI[key]) return WIKI[key];
     if (it.wiki) return it.wiki;
     return it.title; // most unique titles resolve directly; ambiguous ones live in WIKI above
+  }
+  // Designed fallback so a card without a real poster still reads as intentional art.
+  function monogram(t) {
+    var w = t.replace(/^(The|A|An)\s+/i, "").split(/\s+/).filter(Boolean);
+    var m = (w[0] ? w[0].charAt(0) : "") + (w[1] ? w[1].charAt(0) : "");
+    return (m || t.charAt(0)).toUpperCase();
+  }
+  function hueFor(t) { var h = 0; for (var i = 0; i < t.length; i++) h = (h * 31 + t.charCodeAt(i)) % 360; return h; }
+  function posterFallbackStyle(t) {
+    var h = hueFor(t);
+    return "background-image:linear-gradient(150deg,hsl(" + h + ",42%,44%),hsl(" + ((h + 45) % 360) + ",48%,27%));";
   }
   function paintPoster(el, url) {
     var pre = new Image();
@@ -698,7 +709,7 @@
         var hn = (it.highlights || []).length;
         var hint = hn ? '<div class="moment-hint">▶ ' + hn + " signature moment" + (hn > 1 ? "s" : "") + "</div>" : "";
         return '<div class="card' + open + '" data-id="' + it.id + '">' +
-          '<div class="card-top"><div class="poster" data-pid="' + it.id + '"><span class="ph">' + (it.d === "screen" ? "🎬" : "♪") + "</span></div>" +
+          '<div class="card-top"><div class="poster" data-pid="' + it.id + '" style="' + posterFallbackStyle(it.title) + '"><span class="ph">' + esc(monogram(it.title)) + "</span></div>" +
           '<div class="card-body">' +
           "<h3>" + esc(it.title) + "</h3>" +
           (it.sub ? '<div class="meta">' + esc(it.sub) + "</div>" : "") +
@@ -746,11 +757,14 @@
     var lines = [it.title + (it.year ? " (" + it.year + ")" : "")];
     if (it.sub) lines.push(it.sub);
     if (it.note) lines.push("", it.note);
-    if ((it.highlights || []).length) {
-      lines.push("", (it.d === "screen" ? "Scenes to watch:" : "Listen:"));
-      it.highlights.forEach(function (h) { lines.push("• " + h.label + ": " + h.url); });
+    var hl = it.highlights || [];
+    if (hl.length) {
+      lines.push("", it.d === "screen" ? "🎬 Scenes worth seeing:" : "🎵 Have a listen:");
+      hl.forEach(function (h) { lines.push("• " + h.label + ": " + h.url); });
+    } else {
+      lines.push("", (it.d === "screen" ? "▶ Trailer: " : "▶ Listen: ") + watchLinks(it)[0].url);
     }
-    lines.push("", "— shared from Marquee");
+    lines.push("", "Shared from my Marquee 🎬");
     return lines.join("\n");
   }
   function copyShare(it, btn) {
