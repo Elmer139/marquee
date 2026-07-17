@@ -1,0 +1,715 @@
+<meta charset="utf-8">
+<title>Marquee</title>
+<style>
+  :root {
+    --bg: #F6F3EC;
+    --bg-2: #EFEBE1;
+    --surface: #FFFFFF;
+    --surface-2: #F1EDE3;
+    --line: #DED7C7;
+    --ink: #1A1815;
+    --ink-2: #5C574E;
+    --ink-3: #8A8375;
+    --screen: #C8811A;
+    --screen-soft: rgba(200,129,26,0.12);
+    --sound: #128C90;
+    --sound-soft: rgba(18,140,144,0.12);
+    --accent: var(--screen);
+    --accent-soft: var(--screen-soft);
+    --danger: #B23A3A;
+    --shadow: 0 1px 2px rgba(26,24,21,0.06), 0 8px 24px rgba(26,24,21,0.08);
+    --radius: 14px;
+    --maxw: 1120px;
+    --serif: Georgia, 'Times New Roman', serif;
+    --sans: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    --mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0E0F13; --bg-2: #14151B; --surface: #191A21; --surface-2: #1F212A;
+      --line: #2C2E39; --ink: #F2EFE8; --ink-2: #ABA79D; --ink-3: #6E6B63;
+      --screen: #E8B04B; --screen-soft: rgba(232,176,75,0.14);
+      --sound: #4FC3C6; --sound-soft: rgba(79,195,198,0.14); --danger: #E5726F;
+      --shadow: 0 1px 2px rgba(0,0,0,0.4), 0 12px 32px rgba(0,0,0,0.45);
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #F6F3EC; --bg-2: #EFEBE1; --surface: #FFFFFF; --surface-2: #F1EDE3;
+    --line: #DED7C7; --ink: #1A1815; --ink-2: #5C574E; --ink-3: #8A8375;
+    --screen: #C8811A; --screen-soft: rgba(200,129,26,0.12);
+    --sound: #128C90; --sound-soft: rgba(18,140,144,0.12); --danger: #B23A3A;
+    --shadow: 0 1px 2px rgba(26,24,21,0.06), 0 8px 24px rgba(26,24,21,0.08);
+  }
+  :root[data-theme="dark"] {
+    --bg: #0E0F13; --bg-2: #14151B; --surface: #191A21; --surface-2: #1F212A;
+    --line: #2C2E39; --ink: #F2EFE8; --ink-2: #ABA79D; --ink-3: #6E6B63;
+    --screen: #E8B04B; --screen-soft: rgba(232,176,75,0.14);
+    --sound: #4FC3C6; --sound-soft: rgba(79,195,198,0.14); --danger: #E5726F;
+    --shadow: 0 1px 2px rgba(0,0,0,0.4), 0 12px 32px rgba(0,0,0,0.45);
+  }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); line-height: 1.5; -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: var(--maxw); margin: 0 auto; padding: 0 20px; }
+
+  header.marquee { border-bottom: 1px solid var(--line); background: linear-gradient(180deg, var(--bg-2), var(--bg)); position: sticky; top: 0; z-index: 20; backdrop-filter: blur(8px); }
+  .marquee-inner { display: flex; align-items: center; gap: 16px; padding: 14px 20px; max-width: var(--maxw); margin: 0 auto; flex-wrap: wrap; }
+  .brand { display: flex; align-items: baseline; gap: 10px; margin-right: auto; }
+  .bulbs { display: flex; gap: 4px; align-self: center; }
+  .bulb { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 8px var(--accent); opacity: 0.85; }
+  .brand h1 { font-family: var(--serif); font-weight: 700; font-style: italic; font-size: 26px; margin: 0; letter-spacing: 0.5px; }
+  .brand .sub { color: var(--ink-3); font-size: 12px; letter-spacing: 1.5px; text-transform: uppercase; }
+
+  .theme-btn { border: 1px solid var(--line); background: var(--surface); color: var(--ink-2); width: 38px; height: 38px; border-radius: 10px; cursor: pointer; font-size: 16px; display: grid; place-items: center; }
+  .theme-btn:hover { color: var(--ink); border-color: var(--accent); }
+
+  .domains { display: flex; gap: 8px; }
+  .domain-tab { border: 1px solid var(--line); background: transparent; color: var(--ink-2); padding: 9px 16px; border-radius: 999px; cursor: pointer; font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 8px; transition: all 0.15s; }
+  .domain-tab .dot { width: 8px; height: 8px; border-radius: 50%; }
+  .domain-tab[data-d="screen"] .dot { background: var(--screen); }
+  .domain-tab[data-d="sound"] .dot { background: var(--sound); }
+  .domain-tab.active { color: var(--ink); border-color: currentColor; background: var(--accent-soft); }
+
+  .toolbar { display: flex; gap: 12px; align-items: center; padding: 20px 0 8px; flex-wrap: wrap; }
+  .search { flex: 1 1 260px; min-width: 180px; display: flex; align-items: center; gap: 8px; border: 1px solid var(--line); background: var(--surface); border-radius: 10px; padding: 0 12px; }
+  .search input { border: none; background: transparent; color: var(--ink); font-size: 15px; padding: 11px 0; width: 100%; outline: none; font-family: var(--sans); }
+  .search svg { flex: none; color: var(--ink-3); }
+  .seg { display: flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  .seg button { border: none; background: var(--surface); color: var(--ink-2); padding: 10px 14px; cursor: pointer; font-size: 13px; font-weight: 600; }
+  .seg button.active { background: var(--accent-soft); color: var(--ink); }
+  .seg button + button { border-left: 1px solid var(--line); }
+
+  .collbar { display: flex; flex-wrap: wrap; gap: 8px; padding: 8px 0 2px; }
+  .collbar button { border: 1px solid var(--line); background: transparent; color: var(--ink-2); border-radius: 999px; padding: 6px 13px; font-size: 12px; font-weight: 600; cursor: pointer; letter-spacing: 0.3px; }
+  .collbar button:hover { color: var(--accent); border-color: var(--accent); }
+  .collbar button.active { background: var(--accent-soft); color: var(--ink); border-color: var(--accent); }
+
+  .count { color: var(--ink-3); font-size: 13px; padding: 10px 0 14px; letter-spacing: 0.3px; }
+  .count b { color: var(--accent); font-variant-numeric: tabular-nums; }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; padding-bottom: 120px; align-items: start; }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; cursor: pointer; transition: border-color 0.15s, transform 0.15s; }
+  .card:hover { border-color: var(--accent); transform: translateY(-2px); }
+  .card-top { display: flex; gap: 12px; padding: 16px; }
+  .rail { width: 4px; align-self: stretch; border-radius: 4px; background: var(--accent); flex: none; }
+  .card-body { flex: 1; min-width: 0; }
+  .card h3 { font-family: var(--serif); font-style: italic; font-weight: 700; font-size: 19px; margin: 0 0 2px; line-height: 1.2; text-wrap: balance; }
+  .card .meta { color: var(--ink-2); font-size: 13px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  .chip { font-size: 11px; letter-spacing: 0.4px; text-transform: uppercase; color: var(--ink-2); border: 1px solid var(--line); border-radius: 999px; padding: 3px 9px; }
+  .chip.year { font-family: var(--mono); font-variant-numeric: tabular-nums; letter-spacing: 0; color: var(--accent); border-color: var(--accent); }
+  .chip.type { background: var(--accent-soft); border-color: transparent; color: var(--ink); }
+  .chip.coll { border-style: dashed; border-color: var(--accent); color: var(--accent); cursor: pointer; }
+  .chip.coll:hover { background: var(--accent-soft); }
+  .moment-hint { margin-top: 10px; font-size: 12px; font-weight: 600; color: var(--accent); display: flex; align-items: center; gap: 5px; }
+
+  .detail { border-top: 1px solid var(--line); padding: 14px 16px; display: none; background: var(--surface-2); }
+  .card.open .detail { display: block; }
+  .detail .label { font-size: 11px; text-transform: uppercase; letter-spacing: 1.2px; color: var(--ink-3); margin: 0 0 8px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .detail .label + .label { margin-top: 18px; }
+  .hint2 { text-transform: none; letter-spacing: 0; color: var(--ink-3); font-weight: 400; }
+  .detail p { margin: 0 0 6px; font-size: 14px; color: var(--ink); }
+  .watch { display: flex; flex-wrap: wrap; gap: 8px; }
+  .watch a { text-decoration: none; font-size: 13px; font-weight: 600; color: var(--ink); border: 1px solid var(--line); border-radius: 9px; padding: 8px 12px; display: inline-flex; align-items: center; gap: 6px; background: var(--surface); }
+  .watch a:hover { border-color: var(--accent); color: var(--accent); }
+  .watch a.hot { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+  .foot { text-align: center; color: var(--ink-3); font-size: 12px; padding: 8px 0 48px; letter-spacing: 0.3px; }
+  .foot a { color: var(--ink-2); text-decoration: none; }
+  .foot a:hover { color: var(--accent); }
+  .watch.moments a { background: var(--accent-soft); border-color: transparent; }
+  .watch.moments a .tri { color: var(--accent); font-size: 11px; }
+  .watch.moments a:hover { border-color: var(--accent); }
+  .actions { display: flex; align-items: center; gap: 14px; margin-top: 18px; flex-wrap: wrap; }
+  .share { display: inline-flex; align-items: center; gap: 6px; background: var(--surface); border: 1px solid var(--line); color: var(--ink-2); border-radius: 9px; padding: 8px 13px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: var(--sans); }
+  .share:hover { border-color: var(--accent); color: var(--accent); }
+  .share.copied { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
+  .del { background: none; border: none; color: var(--danger); font-size: 12px; cursor: pointer; padding: 0; }
+  .del:hover { text-decoration: underline; }
+
+  .table-scroll { overflow-x: auto; padding-bottom: 120px; }
+  table { width: 100%; border-collapse: collapse; min-width: 640px; }
+  th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--ink-3); padding: 10px 14px; border-bottom: 2px solid var(--line); cursor: pointer; user-select: none; white-space: nowrap; }
+  th:hover { color: var(--accent); }
+  th .arw { opacity: 0; margin-left: 4px; }
+  th.sorted .arw { opacity: 1; color: var(--accent); }
+  td { padding: 12px 14px; border-bottom: 1px solid var(--line); font-size: 14px; vertical-align: top; }
+  tr.row { cursor: pointer; }
+  tr.row:hover td { background: var(--surface-2); }
+  td.t-title { font-family: var(--serif); font-style: italic; font-weight: 700; font-size: 16px; }
+  td.t-year { font-family: var(--mono); font-variant-numeric: tabular-nums; color: var(--accent); }
+  td .sub2 { color: var(--ink-3); font-size: 12px; font-family: var(--sans); font-style: normal; font-weight: 400; margin-top: 2px; }
+  td .sub2 .tri { color: var(--accent); font-weight: 700; }
+  .coll-tag { display: inline-block; font-size: 10px; text-transform: uppercase; letter-spacing: 0.6px; color: var(--accent); border: 1px dashed var(--accent); border-radius: 6px; padding: 1px 6px; margin-right: 6px; }
+  tr.detail-row td { background: var(--surface-2); }
+  tr.detail-row .detail { display: block; border: none; padding: 4px 4px 16px; background: none; }
+
+  .fab { position: fixed; right: 24px; bottom: 24px; z-index: 30; width: 60px; height: 60px; border-radius: 50%; border: none; cursor: pointer; background: var(--accent); color: #10100c; font-size: 30px; line-height: 1; box-shadow: 0 8px 24px rgba(0,0,0,0.28); display: grid; place-items: center; }
+  :root[data-theme="light"] .fab { color: #fff; }
+  .fab:hover { transform: scale(1.05); }
+
+  .overlay { position: fixed; inset: 0; background: rgba(10,10,12,0.55); z-index: 40; display: none; align-items: flex-end; justify-content: center; }
+  .overlay.open { display: flex; }
+  @media (min-width: 640px) { .overlay { align-items: center; } }
+  .modal { background: var(--surface); width: 100%; max-width: 520px; border-radius: 18px 18px 0 0; border: 1px solid var(--line); box-shadow: var(--shadow); max-height: 92vh; overflow-y: auto; }
+  @media (min-width: 640px) { .modal { border-radius: 18px; } }
+  .modal-head { display: flex; align-items: center; justify-content: space-between; padding: 18px 20px; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--surface); z-index: 1; }
+  .modal-head h2 { font-family: var(--serif); font-style: italic; margin: 0; font-size: 22px; }
+  .x { background: none; border: none; color: var(--ink-3); font-size: 24px; cursor: pointer; line-height: 1; }
+  form { padding: 20px; display: grid; gap: 14px; }
+  .field { display: grid; gap: 6px; }
+  .field label { font-size: 12px; text-transform: uppercase; letter-spacing: 0.8px; color: var(--ink-3); }
+  .field input, .field textarea, .field select { border: 1px solid var(--line); background: var(--bg); color: var(--ink); border-radius: 10px; padding: 11px 12px; font-size: 15px; font-family: var(--sans); outline: none; }
+  .field input:focus, .field textarea:focus, .field select:focus { border-color: var(--accent); }
+  .field textarea { resize: vertical; min-height: 68px; }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .hl-row { display: grid; grid-template-columns: 1fr 1.3fr; gap: 8px; }
+  .domain-pick { display: flex; gap: 8px; }
+  .domain-pick label { flex: 1; position: relative; }
+  .domain-pick input { position: absolute; opacity: 0; }
+  .domain-pick span { display: block; text-align: center; padding: 11px; border: 1px solid var(--line); border-radius: 10px; cursor: pointer; font-weight: 600; font-size: 14px; color: var(--ink-2); }
+  .domain-pick input:checked + span { border-color: var(--accent); background: var(--accent-soft); color: var(--ink); }
+  .submit { background: var(--accent); color: #12110c; border: none; border-radius: 10px; padding: 13px; font-size: 15px; font-weight: 700; cursor: pointer; }
+  :root[data-theme="light"] .submit { color: #fff; }
+  .hint { color: var(--ink-3); font-size: 12px; text-transform: none; letter-spacing: 0; font-weight: 400; }
+
+  .empty { text-align: center; color: var(--ink-3); padding: 70px 20px; }
+  .empty .big { font-family: var(--serif); font-style: italic; font-size: 22px; color: var(--ink-2); margin-bottom: 6px; }
+
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<header class="marquee">
+  <div class="marquee-inner">
+    <div class="brand">
+      <span class="bulbs"><span class="bulb"></span><span class="bulb"></span><span class="bulb"></span></span>
+      <h1>Marquee</h1>
+      <span class="sub" id="brandsub">Now Showing</span>
+    </div>
+    <div class="domains">
+      <button class="domain-tab active" data-d="screen"><span class="dot"></span>Screen</button>
+      <button class="domain-tab" data-d="sound"><span class="dot"></span>Sound</button>
+    </div>
+    <button class="theme-btn" id="themeBtn" title="Toggle light / dark">◐</button>
+  </div>
+</header>
+
+<main class="wrap">
+  <div class="toolbar">
+    <div class="search">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+      <input id="search" placeholder="Search titles, artists, genres…" autocomplete="off">
+    </div>
+    <div class="seg" id="viewSeg">
+      <button data-v="grid" class="active">Cards</button>
+      <button data-v="table">Table</button>
+    </div>
+  </div>
+  <div class="collbar" id="collbar"></div>
+  <div class="count" id="count"></div>
+  <div id="content"></div>
+  <footer class="foot" id="foot"></footer>
+</main>
+
+<button class="fab" id="fab" title="Add something">+</button>
+
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <div class="modal-head">
+      <h2 id="modalTitle">Add to the vault</h2>
+      <button class="x" id="closeModal">×</button>
+    </div>
+    <form id="addForm">
+      <div class="field">
+        <label>Which world?</label>
+        <div class="domain-pick">
+          <label><input type="radio" name="domain" value="screen" checked><span>🎬 Screen</span></label>
+          <label><input type="radio" name="domain" value="sound"><span>🎵 Sound</span></label>
+        </div>
+      </div>
+      <div class="field">
+        <label id="lblTitle">Title</label>
+        <input name="title" required placeholder="e.g. Blade Runner">
+      </div>
+      <div class="field">
+        <label id="lblSub">Director / Cast</label>
+        <input name="sub" placeholder="e.g. Ridley Scott">
+      </div>
+      <div class="row2">
+        <div class="field">
+          <label>Year</label>
+          <input name="year" inputmode="numeric" placeholder="1982">
+        </div>
+        <div class="field">
+          <label id="lblType">Type</label>
+          <select name="type" id="typeSelect"></select>
+        </div>
+      </div>
+      <div class="field">
+        <label>Genre / Style <span class="hint">(comma separated)</span></label>
+        <input name="genre" placeholder="Sci-Fi, Noir">
+      </div>
+      <div class="field">
+        <label>Collection <span class="hint">(optional — e.g. Tear Jerkers, True Love)</span></label>
+        <input name="collection" placeholder="Tear Jerkers" list="collList">
+        <datalist id="collList"></datalist>
+      </div>
+      <div class="field">
+        <label id="lblNote">Fun fact / trivia</label>
+        <textarea name="note" placeholder="Something notable, historic, or genre-changing…"></textarea>
+      </div>
+      <div class="field">
+        <label>Signature moments <span class="hint">(a scene worth sharing — label + link)</span></label>
+        <div class="hl-row"><input name="hl_label_1" placeholder="e.g. The ending"><input name="hl_url_1" placeholder="https://youtu.be/…"></div>
+        <div class="hl-row"><input name="hl_label_2" placeholder="Another moment"><input name="hl_url_2" placeholder="https://youtu.be/…"></div>
+      </div>
+      <button type="submit" class="submit">Add to Marquee</button>
+      <p class="hint">Saved on this device. Tap any item to reveal its moments and a one-tap “Copy to share.”</p>
+    </form>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var APP_VERSION = "0.3.0";
+  var yt = function (id) { return "https://www.youtube.com/watch?v=" + id; };
+
+  // ---------- Seed data ----------
+  var SEED = [
+    // ===== SCREEN =====
+    {d:"screen",type:"Movie",title:"Shakespeare in Love",sub:"John Madden",year:1998,genre:["Romance","Comedy-Drama"],collection:"True Love",
+      note:"Won Best Picture at the 1999 Oscars in a famous upset over Saving Private Ryan. Gwyneth Paltrow took Best Actress; Judi Dench won Supporting for about eight minutes of screen time as Queen Elizabeth.",
+      highlights:[{label:"A signature scene",url:yt("CQ0CC_8hqLU")},{label:"Another moment",url:yt("sVx72x1dzwA")},{label:"The ending",url:yt("Wmk-NmwOcpg")}]},
+    {d:"screen",type:"Movie",title:"Life Is Beautiful",sub:"Roberto Benigni",year:1997,genre:["Drama","War","Comedy"],collection:"True Love",
+      note:"Benigni climbed over the seats at the Oscars to accept Best Actor — the first man to win for a performance in a non-English-language film.",
+      highlights:[{label:"The story — why it's beautiful",url:yt("1fymNZtBmic")},{label:"'He's alive!'",url:yt("iuh5B8OVkKE")},{label:"He confesses he's in love",url:yt("7OT_4GCeaJo")}]},
+    {d:"screen",type:"Movie",title:"Memoirs of a Geisha",sub:"Rob Marshall",year:2005,genre:["Drama","Romance"],collection:"True Love",
+      note:"Won three Oscars (Cinematography, Art Direction, Costume). Its three leads — Zhang Ziyi, Gong Li, Michelle Yeoh — are Chinese and Malaysian, which stirred debate in Japan and China.",
+      highlights:[{label:"A signature scene",url:yt("s_UW3pyY7Gk")}]},
+    {d:"screen",type:"Movie",title:"Into the Wild",sub:"Sean Penn · Emile Hirsch",year:2007,genre:["Drama","Adventure","Biography"],collection:"True Love",
+      note:"Based on Jon Krakauer's book about Christopher McCandless, who gave away his savings and walked into the Alaskan wild. Eddie Vedder of Pearl Jam wrote the aching soundtrack.",
+      highlights:[{label:"'When you forgive, you love'",url:yt("VWpdYmEaeiE")},{label:"Mr. Franz asks to adopt him",url:yt("GnOQ3AHGRhY")}]},
+    {d:"screen",type:"Movie",title:"Schindler's List",sub:"Steven Spielberg",year:1993,genre:["History","Drama","War"],collection:"Sorrow",
+      note:"Shot in black and white; the girl in the red coat is nearly the only splash of color. Won 7 Oscars. Spielberg refused a salary, calling it 'blood money,' and used his profits to fund the Shoah Foundation.",
+      highlights:[{label:"The ending",url:yt("W9vj2Wf57rQ")}]},
+    {d:"screen",type:"Movie",title:"Good Will Hunting",sub:"Gus Van Sant · Matt Damon, Robin Williams",year:1997,genre:["Drama"],collection:"Sorrow",
+      note:"Matt Damon and Ben Affleck won the Original Screenplay Oscar for a script they wrote as unknowns; Robin Williams won Supporting Actor and improvised much of the park-bench monologue.",
+      highlights:[{label:"Robin Williams' monologue",url:yt("8GY3sO47YYo")}]},
+    {d:"screen",type:"Documentary",title:"Amy",sub:"Asif Kapadia · Amy Winehouse",year:2015,genre:["Music","Biography"],collection:"Mastery",
+      note:"Won the Best Documentary Oscar, built almost entirely from home videos and archival footage of Amy Winehouse — no on-camera interviews. A devastating portrait of talent and fame.",
+      highlights:[{label:"The 'happy birthday' scene",url:yt("wqmwcEtU2Js")},{label:"Full documentary (Netflix)",url:"https://www.netflix.com/title/80049094"}]},
+    {d:"screen",type:"Movie",title:"Life",sub:"Daniel Espinosa · Ryan Reynolds, Jake Gyllenhaal",year:2017,genre:["Sci-Fi","Horror","Thriller"],
+      note:"A claustrophobic 'trapped on a space station with a growing alien' thriller. A popular fan theory claimed it was a secret Venom prequel — the writers said no, but happily played along."},
+    {d:"screen",type:"Movie",title:"Ambulance",sub:"Michael Bay · Jake Gyllenhaal, Yahya Abdul-Mateen II",year:2022,genre:["Action","Thriller"],
+      note:"Michael Bay shot much of the LA chase with FPV racing drones diving down the sides of skyscrapers — a technique he pioneered here. (Heads-up: I couldn't verify a 'Reynolds' in this one — tell me if you meant a different film.)"},
+    {d:"screen",type:"Movie",title:"The Cloverfield Paradox",sub:"Julius Onah",year:2018,genre:["Sci-Fi","Horror"],
+      note:"Netflix surprise-dropped it right after its first-ever Super Bowl trailer — the first time a major film went from teaser to streaming the very same night."},
+    {d:"screen",type:"Movie",title:"The Abyss",sub:"James Cameron",year:1989,genre:["Sci-Fi","Adventure"],
+      note:"Filmed in a containment tank at an unfinished nuclear plant. Ed Harris nearly drowned. Its water 'pseudopod' was a landmark in computer-generated effects that led straight to Terminator 2."},
+    {d:"screen",type:"Movie",title:"The Wolf of Wall Street",sub:"Martin Scorsese · Leonardo DiCaprio",year:2013,genre:["Biography","Dark Comedy","Crime"],
+      note:"Holds the record for the most profanity in a mainstream scripted film — over 500 f-words in three hours."},
+    {d:"screen",type:"Movie",title:"Forrest Gump",sub:"Robert Zemeckis · Tom Hanks",year:1994,genre:["Drama","Comedy"],
+      note:"Won Best Picture. Tom Hanks took part of his fee as stock in the film instead of salary and reportedly earned around $60 million."},
+    {d:"screen",type:"Movie",title:"Titus",sub:"Julie Taymor · Anthony Hopkins",year:1999,genre:["History","Tragedy"],
+      note:"The film debut of theater director Julie Taymor — she'd just staged The Lion King on Broadway. It adapts Shakespeare's bloodiest, most violent play, Titus Andronicus."},
+    {d:"screen",type:"Movie",title:"The Witches of Eastwick",sub:"George Miller · Jack Nicholson, Cher",year:1987,genre:["Comedy","Fantasy","Horror"],
+      note:"Directed by George Miller — yes, the Mad Max director. Adapted from John Updike's novel, with Nicholson gleefully playing the literal devil."},
+    {d:"screen",type:"Movie",title:"Dead Presidents",sub:"The Hughes Brothers · Larenz Tate",year:1995,genre:["Crime","Drama","War"],
+      note:"The title is slang for cash (the faces on U.S. bills). Its heist scene with white-and-black face paint became one of the most iconic images of '90s cinema."},
+    {d:"screen",type:"Movie",title:"Malcolm X",sub:"Spike Lee · Denzel Washington",year:1992,genre:["Biography","Drama"],
+      note:"Denzel earned a Best Actor nomination. Spike Lee closed the film with Nelson Mandela himself appearing as a Soweto schoolteacher."},
+    {d:"screen",type:"Movie",title:"Superman",sub:"Richard Donner · Christopher Reeve",year:1978,genre:["Superhero","Adventure"],
+      note:"'You'll believe a man can fly' — the film that invented the modern superhero blockbuster. Marlon Brando was paid a then-record sum for about ten minutes as Jor-El. (Tell me if you meant the 2025 reboot.)"},
+    {d:"screen",type:"Movie",title:"X-Men",sub:"Bryan Singer",year:2000,genre:["Superhero","Action"],
+      note:"Widely credited with launching the modern comic-book movie era, a year before Spider-Man. (You mentioned two X-Men films — I seeded the first two; tell me which pair you meant.)"},
+    {d:"screen",type:"Movie",title:"X2: X-Men United",sub:"Bryan Singer",year:2003,genre:["Superhero","Action"],
+      note:"Often ranked among the best superhero sequels ever; its opening Nightcrawler White House attack is a standout set piece."},
+    {d:"screen",type:"TV Series",title:"The Incredible Hulk",sub:"Bill Bixby & Lou Ferrigno",year:1977,genre:["Superhero","Drama"],
+      note:"Lou Ferrigno was painted green as the Hulk. Every episode ended with the lonely piano theme 'The Lonely Man' as David Banner walked off down the road."},
+    {d:"screen",type:"TV Series",title:"The Six Million Dollar Man",sub:"Lee Majors",year:1973,genre:["Sci-Fi","Action"],
+      note:"'We can rebuild him. We have the technology.' The 'ch-ch-ch' bionic sound effect became pop-culture shorthand and spun off The Bionic Woman."},
+    {d:"screen",type:"TV Series",title:"Wonder Woman",sub:"Lynda Carter",year:1975,genre:["Superhero","Action"],
+      note:"Lynda Carter's spinning transformation into Wonder Woman became one of TV's most iconic images. The show began in WWII, then jumped to the then-present '70s."},
+    {d:"screen",type:"Movie",title:"Inception",sub:"Christopher Nolan · Leonardo DiCaprio",year:2010,genre:["Sci-Fi","Heist","Thriller"],
+      note:"The rotating-hallway fight was filmed in a real spinning set. Hans Zimmer's 'BRAAAM' reshaped a decade of movie-trailer sound — and the top never quite stops spinning."},
+    {d:"screen",type:"Movie",title:"Wonder Woman",sub:"Patty Jenkins · Gal Gadot",year:2017,genre:["Superhero","Action"],
+      note:"The first blockbuster of the modern superhero era led by a woman and directed by one. The No Man's Land sequence is its signature moment."},
+    {d:"screen",type:"Movie",title:"Prometheus",sub:"Ridley Scott",year:2012,genre:["Sci-Fi","Horror"],
+      note:"Ridley Scott's return to the Alien universe, 33 years after the original. Michael Fassbender based the android David on Peter O'Toole in Lawrence of Arabia."},
+    {d:"screen",type:"Movie",title:"West Side Story",sub:"Robert Wise & Jerome Robbins",year:1961,genre:["Musical","Romance","Drama"],
+      note:"Won 10 Academy Awards — still the most ever for a musical. Natalie Wood's singing voice was dubbed by Marni Nixon, Hollywood's 'ghost singer.'"},
+    {d:"screen",type:"Movie",title:"The Ten Commandments",sub:"Cecil B. DeMille · Charlton Heston",year:1956,genre:["Epic","History","Drama"],
+      note:"For decades a fixture of network TV at Easter/Passover. The parting of the Red Sea was made by filming water dumped from tanks, then running the footage in reverse."},
+    {d:"screen",type:"Movie",title:"Kingdom of Heaven",sub:"Ridley Scott · Orlando Bloom",year:2005,genre:["History","Epic","Drama"],
+      note:"The theatrical cut was panned — but Ridley Scott's much longer Director's Cut restored ~45 minutes and is now considered one of his finest films."},
+    {d:"screen",type:"Movie",title:"Phone Booth",sub:"Joel Schumacher · Colin Farrell",year:2002,genre:["Thriller"],
+      note:"Shot in roughly ten days, almost entirely on a single Manhattan street corner, unfolding in near real time."},
+    {d:"screen",type:"Movie",title:"Scanners",sub:"David Cronenberg",year:1981,genre:["Sci-Fi","Horror"],
+      note:"Its exploding-head scene — made by firing a shotgun into a latex head packed with dog food and rabbit livers — is one of horror's most infamous moments."},
+    {d:"screen",type:"Movie",title:"Star Trek",sub:"J.J. Abrams",year:2009,genre:["Sci-Fi","Action"],
+      note:"Rebooted the franchise with an alternate 'Kelvin timeline.' Leonard Nimoy returned as the original Spock — and yes, the lens flares are legendary."},
+    {d:"screen",type:"Movie",title:"Star Trek Into Darkness",sub:"J.J. Abrams",year:2013,genre:["Sci-Fi","Action"],
+      note:"The follow-up to the 2009 reboot. The studio spent months denying that Benedict Cumberbatch's villain was Khan — right up until the reveal."},
+
+    // ===== SOUND =====
+    {d:"sound",type:"Artist",title:"Simon & Garfunkel",sub:"Paul Simon, Art Garfunkel",year:1964,genre:["Folk Rock"],
+      note:"'The Sound of Silence' flopped as an acoustic track — then a producer overdubbed electric instruments without telling the duo, and the remix hit #1. Paul Simon's solo Graceland (1986) later brought South African music to a global audience."},
+    {d:"sound",type:"Artist",title:"Tame Impala",sub:"Kevin Parker",year:2010,genre:["Psychedelic","Synth-Pop"],
+      note:"'The band' is essentially one person: Kevin Parker writes, plays, and produces almost everything himself. Currents (2015) marked his leap from guitar-psych to lush synth-pop."},
+    {d:"sound",type:"Artist",title:"The Doors",sub:"Jim Morrison, Ray Manzarek",year:1965,genre:["Psychedelic Rock","Blues Rock"],
+      note:"Named after Aldous Huxley's The Doors of Perception. They had no full-time bassist — Ray Manzarek played the bass lines with his left hand on a keyboard. Jim Morrison died in Paris in 1971, aged 27."},
+    {d:"sound",type:"Artist",title:"The Beatles",sub:"Lennon, McCartney, Harrison, Starr",year:1960,genre:["Rock","Pop"],
+      note:"They quit touring in 1966 to become a studio-only band — which made Sgt. Pepper's possible. They remain the best-selling music act in history."},
+    {d:"sound",type:"Artist",title:"Elton John",sub:"born Reginald Dwight",year:1969,genre:["Pop","Rock"],
+      note:"Nearly every classic is co-written with lyricist Bernie Taupin, who writes the words first — then Elton often composes the music in minutes. 'Candle in the Wind 1997' is among the best-selling singles ever."},
+    {d:"sound",type:"Song",title:"Our House",sub:"Crosby, Stills, Nash & Young",year:1970,genre:["Folk Rock"],
+      note:"Graham Nash wrote it in one afternoon about a small domestic moment with Joni Mitchell, whom he was living with at the time.",
+      highlights:[{label:"The song (with lyrics)",url:yt("je-xT0Y2ZvY")}]},
+    {d:"sound",type:"Song",title:"Scarborough Fair",sub:"Simon & Garfunkel",year:1966,genre:["Folk Rock"],
+      note:"A centuries-old English ballad Paul Simon learned from folk singer Martin Carthy in London. The 'Canticle' counter-melody weaves an anti-war lyric beneath the old folk tune.",
+      highlights:[{label:"Live with Tom Jones",url:yt("c_T7HgZKZjo")}]},
+    {d:"sound",type:"Song",title:"Cats in the Cradle",sub:"Harry Chapin",year:1974,genre:["Folk Rock"],collection:"Tear Jerkers",
+      note:"Based on a poem by Chapin's wife Sandy about a father who's always too busy — until the roles reverse. His only #1 hit; Chapin died in a car crash in 1981 at 38, a tireless anti-hunger activist.",
+      highlights:[{label:"The song",url:yt("1E3wDxuW_vs")}]},
+    {d:"sound",type:"Song",title:"Bridge Over Troubled Water",sub:"Simon & Garfunkel",year:1970,genre:["Folk Rock","Gospel"],collection:"Tear Jerkers",
+      note:"Art Garfunkel sings lead; Paul Simon later admitted he sometimes regretted giving the song away. It swept the 1971 Grammys, winning Record and Song of the Year.",
+      highlights:[{label:"Live performance",url:"https://youtu.be/88jNS7MCrf4?t=3278"}]},
+    {d:"sound",type:"Song",title:"Know That You Are Loved",sub:"Cleo Sol",year:null,genre:["Soul","Neo-Soul"],collection:"Tear Jerkers",
+      note:"Cleo Sol is widely credited as the lead voice of SAULT (all-caps, pronounced 'salt') — the acclaimed, deliberately anonymous British collective helmed by producer Inflo, her partner. SAULT never officially confirms its lineup, but her vocals are unmistakable across their albums. (This is her live performance.)",
+      highlights:[{label:"Live (full length)",url:yt("OJpJo6Gm4lA")}]},
+    {d:"sound",type:"Song",title:"The Only Living Boy in New York",sub:"Simon & Garfunkel",year:1970,genre:["Folk Rock"],collection:"Tear Jerkers",
+      note:"Paul Simon wrote it for Art Garfunkel — 'Tom' was Art's stage name in their teenage duo Tom & Jerry — as Art left to act in the film Catch-22. The soaring wordless choir is the two of them singing 'aah' into an echo chamber, layered many times over.",
+      highlights:[{label:"The story behind it",url:yt("oF3kHrwWRPk")},{label:"The song",url:yt("jEEQh2Nv1x8")},{label:"The choir / 'aah' section",url:yt("a3PbXY02Sfs")}]},
+    {d:"sound",type:"Song",title:"Daniel",sub:"Elton John",year:1973,genre:["Pop","Soft Rock"],collection:"Tear Jerkers",
+      note:"Bernie Taupin's lyric was about a war veteran going away; the final verse that explained the whole story was cut for length, leaving the song hauntingly ambiguous.",
+      highlights:[{label:"The song",url:yt("Uc9soF6JkVg")}]},
+    {d:"sound",type:"Song",title:"America",sub:"Simon & Garfunkel",year:1968,genre:["Folk Rock"],collection:"Tear Jerkers",
+      note:"A young couple rides a Greyhound bus searching for the soul of the country. It famously has no rhyme scheme at all. Bernie Sanders later used it in a 2016 campaign ad.",
+      highlights:[{label:"The song",url:yt("f8hlX1HimMI")}]},
+    {d:"sound",type:"Song",title:"Teach Your Children",sub:"Crosby, Stills, Nash & Young",year:1970,genre:["Folk Rock","Country Rock"],collection:"Tear Jerkers",
+      note:"Graham Nash wrote it; the Grateful Dead's Jerry Garcia plays the gliding pedal-steel guitar on the record.",
+      highlights:[{label:"The song",url:yt("zj8FlXGPcOQ")}]},
+    {d:"sound",type:"Song",title:"Spirit in the Sky",sub:"Norman Greenbaum",year:1969,genre:["Psychedelic Rock","Gospel Rock"],collection:"Spiritual",
+      note:"A Jewish songwriter wrote one of the most famous songs about meeting Jesus, inspired by a Porter Wagoner gospel tune. Its fuzzed-out guitar riff still turns up in films constantly.",
+      highlights:[{label:"The song",url:yt("vRFo72wuU6w")}]},
+    {d:"sound",type:"Song",title:"Give Me Love (Give Me Peace on Earth)",sub:"George Harrison",year:1973,genre:["Rock","Soul"],collection:"Spiritual",
+      note:"A prayer set to a weeping slide-guitar melody — and a #1 hit. Harrison writing openly about his spiritual searching after the Beatles.",
+      highlights:[{label:"The song",url:yt("s-KAvPbO8JY")}]},
+    {d:"sound",type:"Song",title:"California Dreamin'",sub:"The Mamas & the Papas",year:1965,genre:["Folk Rock","Pop"],collection:"Spiritual",
+      note:"John Phillips wrote it at 3am and woke his wife Michelle to help finish it. That's a jazz flute solo in the break — and folk singer Barry McGuire's original lead vocal is said to still lie buried beneath the famous version.",
+      highlights:[{label:"The song",url:yt("N-aK6JnyFmk")}]},
+    {d:"sound",type:"Song",title:"Bohemian Rhapsody",sub:"Queen",year:1975,genre:["Rock","Progressive Rock"],
+      note:"Nearly six minutes long with no chorus and a full operatic section; the label was sure radio would never play it. So many vocal overdubs were layered that the tape wore nearly transparent. It topped the charts again in 1991–92 after Freddie Mercury's death and its Wayne's World scene."}
+  ];
+
+  // ---------- State + storage ----------
+  var KEY = "marquee.items.v1", THEMEKEY = "marquee.theme";
+  var userItems = load();
+  var state = { domain: "screen", view: "grid", q: "", coll: "", sortKey: "title", sortDir: 1, open: {} };
+
+  function load() { try { return JSON.parse(localStorage.getItem(KEY)) || []; } catch (e) { return []; } }
+  function save() { try { localStorage.setItem(KEY, JSON.stringify(userItems)); } catch (e) {} }
+  function allItems() {
+    var seeded = SEED.map(function (it, i) { return Object.assign({ id: "s" + i, seed: true }, it); });
+    return seeded.concat(userItems);
+  }
+  function byId(id) { return allItems().filter(function (x) { return x.id === id; })[0]; }
+
+  var $ = function (s) { return document.querySelector(s); };
+  function esc(str) {
+    return String(str == null ? "" : str).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+  function watchLinks(it) {
+    var q = encodeURIComponent(it.title + (it.year ? " " + it.year : ""));
+    if (it.d === "screen") {
+      return [
+        { label: "▶ Trailer", url: "https://www.youtube.com/results?search_query=" + encodeURIComponent(it.title + " " + (it.year || "") + " official trailer"), hot: true },
+        { label: "Where to watch", url: "https://www.google.com/search?q=where+to+watch+" + q + "+streaming" },
+        { label: "JustWatch", url: "https://www.justwatch.com/us/search?q=" + encodeURIComponent(it.title) },
+        { label: "On TV tonight", url: "https://www.google.com/search?q=" + q + "+on+tv+schedule" }
+      ];
+    }
+    var m = encodeURIComponent(it.title + " " + (it.sub || ""));
+    return [
+      { label: "▶ Listen", url: "https://www.youtube.com/results?search_query=" + m, hot: true },
+      { label: "Spotify", url: "https://open.spotify.com/search/" + m },
+      { label: "On the radio", url: "https://www.google.com/search?q=" + m + "+radio+play" }
+    ];
+  }
+
+  function collections() {
+    var set = [];
+    allItems().forEach(function (it) {
+      if (it.d === state.domain && it.collection && set.indexOf(it.collection) === -1) set.push(it.collection);
+    });
+    return set;
+  }
+  function allCollections() {
+    var set = [];
+    allItems().forEach(function (it) { if (it.collection && set.indexOf(it.collection) === -1) set.push(it.collection); });
+    return set;
+  }
+
+  function currentList() {
+    var q = state.q.trim().toLowerCase();
+    var list = allItems().filter(function (it) { return it.d === state.domain; });
+    if (state.coll) list = list.filter(function (it) { return it.collection === state.coll; });
+    if (q) {
+      list = list.filter(function (it) {
+        var hay = it.title + " " + (it.sub || "") + " " + (it.genre || []).join(" ") + " " +
+          it.type + " " + it.year + " " + (it.collection || "") + " " +
+          (it.highlights || []).map(function (h) { return h.label; }).join(" ");
+        return hay.toLowerCase().indexOf(q) !== -1;
+      });
+    }
+    var k = state.sortKey, dir = state.sortDir;
+    list.sort(function (a, b) {
+      var av, bv;
+      if (k === "year") { av = a.year || 0; bv = b.year || 0; }
+      else if (k === "genre") { av = (a.genre || [""])[0].toLowerCase(); bv = (b.genre || [""])[0].toLowerCase(); }
+      else if (k === "type") { av = a.type.toLowerCase(); bv = b.type.toLowerCase(); }
+      else { av = a.title.toLowerCase().replace(/^the\s+/, ""); bv = b.title.toLowerCase().replace(/^the\s+/, ""); }
+      if (av < bv) return -1 * dir;
+      if (av > bv) return 1 * dir;
+      return 0;
+    });
+    return list;
+  }
+
+  var extIcon = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 17L17 7M17 7H8M17 7v9"/></svg>';
+
+  function detailHTML(it) {
+    var out = '<div class="detail">';
+    if (it.note) out += '<div class="label">✦ Fun fact</div><p>' + esc(it.note) + "</p>";
+
+    if ((it.highlights || []).length) {
+      var moments = it.highlights.map(function (h) {
+        return '<a href="' + esc(h.url) + '" target="_blank" rel="noopener"><span class="tri">▶</span> ' + esc(h.label) + " " + extIcon + "</a>";
+      }).join("");
+      out += '<div class="label">◈ Signature moments <span class="hint2">— great even if you\'ve never seen it</span></div>' +
+        '<div class="watch moments">' + moments + "</div>";
+    }
+
+    var links = watchLinks(it).map(function (l) {
+      return '<a class="' + (l.hot ? "hot" : "") + '" href="' + esc(l.url) + '" target="_blank" rel="noopener">' + esc(l.label) + " " + extIcon + "</a>";
+    }).join("");
+    out += '<div class="label">' + (it.d === "screen" ? "Where to watch" : "Where to listen") + '</div>' +
+      '<div class="watch">' + links + "</div>";
+
+    out += '<div class="actions"><button class="share" data-share="' + it.id + '">⧉ Copy to share</button>' +
+      (it.seed ? "" : '<button class="del" data-del="' + it.id + '">Remove from vault</button>') + "</div>";
+    return out + "</div>";
+  }
+
+  function render() {
+    var list = currentList();
+    var content = $("#content");
+
+    // collection filter bar
+    var colls = collections();
+    var cb = $("#collbar");
+    if (colls.length) {
+      cb.innerHTML = '<button class="' + (state.coll === "" ? "active" : "") + '" data-coll="">All</button>' +
+        colls.map(function (c) { return '<button class="' + (state.coll === c ? "active" : "") + '" data-coll="' + esc(c) + '">' + esc(c) + "</button>"; }).join("");
+    } else { cb.innerHTML = ""; }
+
+    $("#count").innerHTML = "<b>" + list.length + "</b> " +
+      (state.domain === "screen" ? "films &amp; shows" : "artists &amp; songs") +
+      (state.coll ? " in “" + esc(state.coll) + "”" : "") +
+      (state.q ? " matching “" + esc(state.q) + "”" : "");
+
+    if (!list.length) {
+      content.innerHTML = '<div class="empty"><div class="big">Nothing here yet</div>' +
+        (state.q || state.coll ? "No matches — try clearing the filter." : "Tap + to add your first.") + "</div>";
+      return;
+    }
+
+    if (state.view === "grid") {
+      content.innerHTML = '<div class="grid">' + list.map(function (it) {
+        var open = state.open[it.id] ? " open" : "";
+        var chips = '<span class="chip type">' + esc(it.type) + "</span>" +
+          (it.year ? '<span class="chip year">' + esc(it.year) + "</span>" : "") +
+          (it.collection ? '<span class="chip coll" data-coll="' + esc(it.collection) + '">' + esc(it.collection) + "</span>" : "") +
+          (it.genre || []).map(function (g) { return '<span class="chip">' + esc(g) + "</span>"; }).join("");
+        var hn = (it.highlights || []).length;
+        var hint = hn ? '<div class="moment-hint">▶ ' + hn + " signature moment" + (hn > 1 ? "s" : "") + "</div>" : "";
+        return '<div class="card' + open + '" data-id="' + it.id + '">' +
+          '<div class="card-top"><div class="rail"></div><div class="card-body">' +
+          "<h3>" + esc(it.title) + "</h3>" +
+          (it.sub ? '<div class="meta">' + esc(it.sub) + "</div>" : "") +
+          '<div class="chips">' + chips + "</div>" + hint + "</div></div>" +
+          detailHTML(it) + "</div>";
+      }).join("") + "</div>";
+    } else {
+      function th(key, label) {
+        var s = state.sortKey === key ? "sorted" : "";
+        var a = state.sortKey === key ? (state.sortDir === 1 ? "▲" : "▼") : "▲";
+        return '<th class="' + s + '" data-sort="' + key + '">' + label + '<span class="arw">' + a + "</span></th>";
+      }
+      var rows = list.map(function (it) {
+        var hn = (it.highlights || []).length;
+        var sub2 = (it.sub ? esc(it.sub) : "") + (hn ? (it.sub ? " · " : "") + '<span class="tri">▶ ' + hn + "</span>" : "");
+        var main = '<tr class="row" data-id="' + it.id + '">' +
+          '<td class="t-title">' + esc(it.title) + (sub2 ? '<div class="sub2">' + sub2 + "</div>" : "") + "</td>" +
+          "<td>" + esc(it.type) + "</td>" +
+          '<td class="t-year">' + (it.year || "—") + "</td>" +
+          "<td>" + (it.collection ? '<span class="coll-tag">' + esc(it.collection) + "</span>" : "") + esc((it.genre || []).join(", ")) + "</td></tr>";
+        var det = state.open[it.id] ? '<tr class="detail-row"><td colspan="4">' + detailHTML(it) + "</td></tr>" : "";
+        return main + det;
+      }).join("");
+      content.innerHTML = '<div class="table-scroll"><table><thead><tr>' +
+        th("title", "Title") + th("type", "Type") + th("year", "Year") + th("genre", "Collection / Genre") +
+        "</tr></thead><tbody>" + rows + "</tbody></table></div>";
+    }
+  }
+
+  function applyAccent() {
+    var root = document.documentElement;
+    if (state.domain === "sound") {
+      root.style.setProperty("--accent", "var(--sound)");
+      root.style.setProperty("--accent-soft", "var(--sound-soft)");
+    } else {
+      root.style.setProperty("--accent", "var(--screen)");
+      root.style.setProperty("--accent-soft", "var(--screen-soft)");
+    }
+    $("#brandsub").textContent = state.domain === "screen" ? "Now Showing" : "Now Playing";
+  }
+
+  // ---------- Share ----------
+  function shareText(it) {
+    var lines = [it.title + (it.year ? " (" + it.year + ")" : "")];
+    if (it.sub) lines.push(it.sub);
+    if (it.note) lines.push("", it.note);
+    if ((it.highlights || []).length) {
+      lines.push("", (it.d === "screen" ? "Scenes to watch:" : "Listen:"));
+      it.highlights.forEach(function (h) { lines.push("• " + h.label + ": " + h.url); });
+    }
+    lines.push("", "— shared from Marquee");
+    return lines.join("\n");
+  }
+  function copyShare(it, btn) {
+    var text = shareText(it);
+    function ok() { btn.textContent = "✓ Copied!"; btn.classList.add("copied"); setTimeout(function () { btn.textContent = "⧉ Copy to share"; btn.classList.remove("copied"); }, 1800); }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(ok, function () { fallback(text, ok); });
+    } else { fallback(text, ok); }
+  }
+  function fallback(text, ok) {
+    var ta = document.createElement("textarea");
+    ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
+    document.body.appendChild(ta); ta.focus(); ta.select();
+    try { document.execCommand("copy"); ok(); } catch (e) {}
+    document.body.removeChild(ta);
+  }
+
+  // ---------- Events ----------
+  document.querySelectorAll(".domain-tab").forEach(function (tab) {
+    tab.addEventListener("click", function () {
+      document.querySelectorAll(".domain-tab").forEach(function (t) { t.classList.remove("active"); });
+      tab.classList.add("active");
+      state.domain = tab.dataset.d; state.open = {}; state.coll = "";
+      applyAccent(); render();
+    });
+  });
+  $("#viewSeg").addEventListener("click", function (e) {
+    var b = e.target.closest("button"); if (!b) return;
+    document.querySelectorAll("#viewSeg button").forEach(function (x) { x.classList.remove("active"); });
+    b.classList.add("active"); state.view = b.dataset.v; render();
+  });
+  $("#collbar").addEventListener("click", function (e) {
+    var b = e.target.closest("button[data-coll]"); if (!b) return;
+    state.coll = b.dataset.coll; render();
+  });
+  $("#search").addEventListener("input", function (e) { state.q = e.target.value; render(); });
+
+  $("#content").addEventListener("click", function (e) {
+    var shareBtn = e.target.closest("[data-share]");
+    if (shareBtn) { e.stopPropagation(); copyShare(byId(shareBtn.dataset.share), shareBtn); return; }
+    var delBtn = e.target.closest("[data-del]");
+    if (delBtn) { e.stopPropagation(); userItems = userItems.filter(function (x) { return x.id !== delBtn.dataset.del; }); save(); render(); return; }
+    var collChip = e.target.closest("[data-coll]");
+    if (collChip) { e.stopPropagation(); state.coll = collChip.dataset.coll; render(); return; }
+    if (e.target.closest("a")) return;
+    var th = e.target.closest("th[data-sort]");
+    if (th) { var k = th.dataset.sort; if (state.sortKey === k) state.sortDir *= -1; else { state.sortKey = k; state.sortDir = 1; } render(); return; }
+    var host = e.target.closest("tr.row, .card");
+    if (host && host.dataset.id) { var id = host.dataset.id; state.open[id] = !state.open[id]; render(); }
+  });
+
+  // ---------- Modal ----------
+  var overlay = $("#overlay"), form = $("#addForm");
+  var TYPES = { screen: ["Movie", "TV Series", "Documentary", "Short"], sound: ["Artist", "Song", "Album", "Band"] };
+  function fillTypes(domain) {
+    $("#typeSelect").innerHTML = TYPES[domain].map(function (t) { return "<option>" + t + "</option>"; }).join("");
+    $("#lblSub").textContent = domain === "screen" ? "Director / Cast" : "Artist / Members";
+    $("#lblTitle").textContent = domain === "screen" ? "Title" : "Title / Artist name";
+  }
+  function refreshCollList() {
+    $("#collList").innerHTML = allCollections().map(function (c) { return '<option value="' + esc(c) + '">'; }).join("");
+  }
+  function openModal() {
+    var dChecked = form.querySelector('input[name="domain"][value="' + state.domain + '"]');
+    if (dChecked) dChecked.checked = true;
+    fillTypes(state.domain); refreshCollList();
+    overlay.classList.add("open");
+    setTimeout(function () { form.querySelector('input[name="title"]').focus(); }, 50);
+  }
+  function closeModal() { overlay.classList.remove("open"); form.reset(); }
+  $("#fab").addEventListener("click", openModal);
+  $("#closeModal").addEventListener("click", closeModal);
+  overlay.addEventListener("click", function (e) { if (e.target === overlay) closeModal(); });
+  form.querySelectorAll('input[name="domain"]').forEach(function (r) { r.addEventListener("change", function () { fillTypes(r.value); }); });
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape") closeModal(); });
+
+  form.addEventListener("submit", function (e) {
+    e.preventDefault();
+    var f = new FormData(form);
+    var domain = f.get("domain");
+    var highlights = [];
+    [["hl_label_1", "hl_url_1"], ["hl_label_2", "hl_url_2"]].forEach(function (p) {
+      var u = (f.get(p[1]) || "").trim();
+      if (u) highlights.push({ label: (f.get(p[0]) || "Watch this moment").trim(), url: u });
+    });
+    var item = {
+      id: "u" + Date.now(),
+      d: domain,
+      type: f.get("type") || (domain === "screen" ? "Movie" : "Song"),
+      title: (f.get("title") || "").trim(),
+      sub: (f.get("sub") || "").trim(),
+      year: parseInt(f.get("year"), 10) || null,
+      genre: (f.get("genre") || "").split(",").map(function (s) { return s.trim(); }).filter(Boolean),
+      collection: (f.get("collection") || "").trim(),
+      note: (f.get("note") || "").trim(),
+      highlights: highlights
+    };
+    if (!item.title) return;
+    userItems.push(item); save();
+    state.domain = domain; state.coll = "";
+    document.querySelectorAll(".domain-tab").forEach(function (t) { t.classList.toggle("active", t.dataset.d === domain); });
+    applyAccent(); closeModal(); render();
+  });
+
+  // ---------- Theme ----------
+  (function initTheme() {
+    var saved = null;
+    try { saved = localStorage.getItem(THEMEKEY); } catch (e) {}
+    if (saved) document.documentElement.setAttribute("data-theme", saved);
+    $("#themeBtn").addEventListener("click", function () {
+      var cur = document.documentElement.getAttribute("data-theme");
+      var isDark = cur ? cur === "dark" : window.matchMedia("(prefers-color-scheme: dark)").matches;
+      var next = isDark ? "light" : "dark";
+      document.documentElement.setAttribute("data-theme", next);
+      try { localStorage.setItem(THEMEKEY, next); } catch (e) {}
+    });
+  })();
+
+  $("#foot").innerHTML = "Marquee · v" + APP_VERSION + " · your taste, organized";
+
+  applyAccent();
+  render();
+})();
+</script>
