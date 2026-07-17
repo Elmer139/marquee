@@ -129,8 +129,15 @@
   .share { display: inline-flex; align-items: center; gap: 6px; background: var(--surface); border: 1px solid var(--line); color: var(--ink-2); border-radius: 9px; padding: 8px 13px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: var(--sans); }
   .share:hover { border-color: var(--accent); color: var(--accent); }
   .share.copied { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
+  .edit { background: none; border: none; color: var(--ink-2); font-size: 12px; font-weight: 600; cursor: pointer; padding: 0; }
+  .edit:hover { color: var(--accent); }
   .del { background: none; border: none; color: var(--danger); font-size: 12px; cursor: pointer; padding: 0; }
   .del:hover { text-decoration: underline; }
+  .confirm { font-size: 13px; color: var(--ink-2); display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .del-yes { background: var(--danger); color: #fff; border: none; border-radius: 8px; padding: 6px 12px; font-size: 13px; font-weight: 600; cursor: pointer; }
+  .del-yes:hover { filter: brightness(1.08); }
+  .del-no { background: none; border: 1px solid var(--line); color: var(--ink-2); border-radius: 8px; padding: 6px 12px; font-size: 13px; font-weight: 600; cursor: pointer; }
+  .del-no:hover { border-color: var(--accent); color: var(--accent); }
 
   .table-scroll { overflow-x: auto; padding-bottom: 120px; }
   table { width: 100%; border-collapse: collapse; min-width: 640px; }
@@ -145,7 +152,8 @@
   td.t-year { font-family: var(--mono); font-variant-numeric: tabular-nums; color: var(--accent); }
   td .sub2 { color: var(--ink-3); font-size: 12px; font-family: var(--sans); font-style: normal; font-weight: 400; margin-top: 2px; }
   td .sub2 .tri { color: var(--accent); font-weight: 700; }
-  .coll-tag { display: inline-block; font-size: 10px; text-transform: uppercase; letter-spacing: 0.6px; color: var(--accent); border: 1px dashed var(--accent); border-radius: 6px; padding: 1px 6px; margin-right: 6px; }
+  .coll-tag { display: inline-block; font-size: 10px; text-transform: uppercase; letter-spacing: 0.6px; color: var(--accent); border: 1px dashed var(--accent); border-radius: 6px; padding: 1px 6px; margin: 0 6px 4px 0; cursor: pointer; }
+  .coll-tag:hover { background: var(--accent-soft); }
   tr.detail-row td { background: var(--surface-2); }
   tr.detail-row .detail { display: block; border: none; padding: 4px 4px 16px; background: none; }
 
@@ -168,6 +176,18 @@
   .field input:focus, .field textarea:focus, .field select:focus { border-color: var(--accent); }
   .field textarea { resize: vertical; min-height: 68px; }
   .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .title-row { display: flex; gap: 8px; }
+  .title-row input { flex: 1; }
+  .lookup-btn { flex: none; border: 1px solid var(--accent); background: var(--accent-soft); color: var(--accent); border-radius: 10px; padding: 0 14px; font-size: 13px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+  .lookup-btn:disabled { opacity: 0.6; cursor: default; }
+  .lookup-results { display: none; margin-top: 8px; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  .lookup-results.show { display: block; }
+  .lookup-results button { display: block; width: 100%; text-align: left; background: var(--surface); border: none; border-bottom: 1px solid var(--line); padding: 10px 12px; cursor: pointer; font-family: var(--sans); color: var(--ink); }
+  .lookup-results button:last-child { border-bottom: none; }
+  .lookup-results button:hover { background: var(--surface-2); }
+  .lookup-results .lr-title { font-weight: 600; font-size: 14px; }
+  .lookup-results .lr-desc { font-size: 12px; color: var(--ink-3); margin-top: 1px; }
+  .lookup-results .lr-status { padding: 10px 12px; font-size: 13px; color: var(--ink-3); }
   .hl-row { display: grid; grid-template-columns: 1fr 1.3fr; gap: 8px; }
   .domain-pick { display: flex; gap: 8px; }
   .domain-pick label { flex: 1; position: relative; }
@@ -235,7 +255,11 @@
       </div>
       <div class="field">
         <label id="lblTitle">Title</label>
-        <input name="title" required placeholder="e.g. Blade Runner">
+        <div class="title-row">
+          <input name="title" required placeholder="e.g. Blade Runner" autocomplete="off">
+          <button type="button" class="lookup-btn" id="lookupBtn">✨ Look&nbsp;up</button>
+        </div>
+        <div class="lookup-results" id="lookup"></div>
       </div>
       <div class="field">
         <label id="lblSub">Director / Cast</label>
@@ -256,8 +280,8 @@
         <input name="genre" placeholder="Sci-Fi, Noir">
       </div>
       <div class="field">
-        <label>Collection <span class="hint">(optional — e.g. Tear Jerkers, True Love)</span></label>
-        <input name="collection" placeholder="Tear Jerkers" list="collList">
+        <label>Moods / feelings <span class="hint">(comma separated — how it makes you feel)</span></label>
+        <input name="moods" placeholder="Heartbreaking, True Love, Hidden Gem" list="collList">
         <datalist id="collList"></datalist>
       </div>
       <div class="field">
@@ -269,8 +293,8 @@
         <div class="hl-row"><input name="hl_label_1" placeholder="e.g. The ending"><input name="hl_url_1" placeholder="https://youtu.be/…"></div>
         <div class="hl-row"><input name="hl_label_2" placeholder="Another moment"><input name="hl_url_2" placeholder="https://youtu.be/…"></div>
       </div>
-      <button type="submit" class="submit">Add to Marquee</button>
-      <p class="hint">Saved on this device. Tap any item to reveal its moments and a one-tap “Copy to share.”</p>
+      <button type="submit" class="submit" id="submitBtn">Add to Marquee</button>
+      <p class="hint">Saved on this device. “Look up” fills details from the title; you can edit anything afterward.</p>
     </form>
   </div>
 </div>
@@ -279,11 +303,60 @@
 (function () {
   "use strict";
 
-  var APP_VERSION = "0.4.0";
+  var APP_VERSION = "0.6.0";
   var yt = function (id) { return "https://www.youtube.com/watch?v=" + id; };
 
-  // Ordered emotional collections shown first in the filter bar; genres follow automatically.
-  var COLLECTION_ORDER = ["True Love", "Sorrow", "Mastery", "Inspirational", "Thought-Provoking"];
+  // The way the user navigates: by FEELING. Moods show first in the filter bar (in this order),
+  // genres follow. Items can carry several moods at once.
+  var MOOD_ORDER = ["True Love", "Heartbreaking", "Sorrow", "Tear Jerkers", "Inspirational",
+    "Thought-Provoking", "Spiritual", "Controversial", "Hidden Gem", "Mastery"];
+
+  // Mood tags for the seeded catalog, keyed by "title|year" (kept here so the data stays tidy).
+  var MOODS = {
+    "Life Is Beautiful|1997": ["True Love", "Heartbreaking", "Inspirational", "Tear Jerkers"],
+    "Schindler's List|1993": ["Sorrow", "Heartbreaking", "Mastery"],
+    "Shakespeare in Love|1998": ["True Love"],
+    "Memoirs of a Geisha|2005": ["True Love", "Heartbreaking"],
+    "Into the Wild|2007": ["True Love", "Heartbreaking", "Thought-Provoking", "Inspirational"],
+    "Good Will Hunting|1997": ["Sorrow", "Heartbreaking", "Inspirational"],
+    "Amy|2015": ["Sorrow", "Heartbreaking", "Mastery"],
+    "Forrest Gump|1994": ["Inspirational", "Heartbreaking", "Tear Jerkers"],
+    "Malcolm X|1992": ["Inspirational", "Controversial", "Mastery"],
+    "The Wolf of Wall Street|2013": ["Controversial", "Mastery"],
+    "Scanners|1981": ["Controversial", "Hidden Gem"],
+    "Dead Presidents|1995": ["Hidden Gem", "Sorrow", "Controversial"],
+    "Titus|1999": ["Controversial", "Hidden Gem", "Mastery"],
+    "Kingdom of Heaven|2005": ["Thought-Provoking", "Hidden Gem"],
+    "The Twilight Saga: New Moon|2009": ["True Love", "Heartbreaking"],
+    "Inception|2010": ["Thought-Provoking", "Mastery"],
+    "Prometheus|2012": ["Thought-Provoking"],
+    "The Abyss|1989": ["Mastery", "Hidden Gem"],
+    "Phone Booth|2002": ["Hidden Gem"],
+    "The Cloverfield Paradox|2018": ["Hidden Gem"],
+    "West Side Story|1961": ["True Love", "Heartbreaking", "Mastery"],
+    "The Ten Commandments|1956": ["Mastery"],
+    "Cats in the Cradle|1974": ["Tear Jerkers", "Heartbreaking"],
+    "Bridge Over Troubled Water|1970": ["Tear Jerkers", "Inspirational"],
+    "Know That You Are Loved|": ["Tear Jerkers", "Inspirational", "Hidden Gem"],
+    "The Only Living Boy in New York|1970": ["Tear Jerkers", "Heartbreaking", "Hidden Gem"],
+    "Daniel|1973": ["Tear Jerkers", "Heartbreaking"],
+    "America|1968": ["Tear Jerkers", "Thought-Provoking"],
+    "Teach Your Children|1970": ["Tear Jerkers", "Inspirational"],
+    "Spirit in the Sky|1969": ["Spiritual"],
+    "Give Me Love (Give Me Peace on Earth)|1973": ["Spiritual", "Heartbreaking"],
+    "California Dreamin'|1965": ["Spiritual"],
+    "Our House|1970": ["True Love"],
+    "Bohemian Rhapsody|1975": ["Mastery"],
+    "Scarborough Fair|1966": ["Hidden Gem"]
+  };
+
+  // Moods for an item: user-added items store their own; seeds come from MOODS (+ any legacy `collection`).
+  function moodsOf(it) {
+    if (it.moods) return it.moods;
+    var m = (MOODS[it.title + "|" + (it.year || "")] || []).slice();
+    if (it.collection && m.indexOf(it.collection) === -1) m.unshift(it.collection);
+    return m;
+  }
 
   // Disambiguation hints so poster lookups hit the right Wikipedia article.
   var WIKI = {
@@ -322,9 +395,10 @@
     pre.src = url; // keep the placeholder until the real image is decoded
   }
   function loadPoster(it) {
-    var q = posterQuery(it);
     var el = document.querySelector('.poster[data-pid="' + it.id + '"]');
     if (!el) return;
+    if (it.img) { paintPoster(el, it.img); return; } // explicit image from lookup / TMDB
+    var q = posterQuery(it);
     if (Object.prototype.hasOwnProperty.call(imgCache, q)) {
       if (imgCache[q]) paintPoster(el, imgCache[q]);
       return;
@@ -472,15 +546,24 @@
   ];
 
   // ---------- State + storage ----------
-  var KEY = "marquee.items.v1", THEMEKEY = "marquee.theme";
+  var KEY = "marquee.items.v1", THEMEKEY = "marquee.theme", DELKEY = "marquee.deletedSeeds.v1";
   var userItems = load();
-  var state = { domain: "screen", view: "grid", q: "", coll: "", sortKey: "title", sortDir: 1, open: {} };
+  var deletedSeeds = loadDel();
+  var state = { domain: "screen", view: "grid", q: "", coll: "", sortKey: "title", sortDir: 1, open: {}, confirmDel: null };
 
   function load() { try { return JSON.parse(localStorage.getItem(KEY)) || []; } catch (e) { return []; } }
   function save() { try { localStorage.setItem(KEY, JSON.stringify(userItems)); } catch (e) {} }
+  function loadDel() { try { return JSON.parse(localStorage.getItem(DELKEY)) || []; } catch (e) { return []; } }
+  function saveDel() { try { localStorage.setItem(DELKEY, JSON.stringify(deletedSeeds)); } catch (e) {} }
   function allItems() {
-    var seeded = SEED.map(function (it, i) { return Object.assign({ id: "s" + i, seed: true }, it); });
+    var seeded = SEED.map(function (it, i) { return Object.assign({ id: "s" + i, seed: true }, it); })
+      .filter(function (it) { return deletedSeeds.indexOf(it.id) === -1; });
     return seeded.concat(userItems);
+  }
+  function deleteItem(id) {
+    if (id.charAt(0) === "s") { if (deletedSeeds.indexOf(id) === -1) { deletedSeeds.push(id); saveDel(); } }
+    else { userItems = userItems.filter(function (x) { return x.id !== id; }); save(); }
+    delete state.open[id]; state.confirmDel = null;
   }
   function byId(id) { return allItems().filter(function (x) { return x.id === id; })[0]; }
 
@@ -508,10 +591,10 @@
     ];
   }
 
-  function domainCollections() {
+  function domainMoods() {
     var present = {};
-    allItems().forEach(function (it) { if (it.d === state.domain && it.collection) present[it.collection] = 1; });
-    var ordered = COLLECTION_ORDER.filter(function (c) { return present[c]; });
+    allItems().forEach(function (it) { if (it.d === state.domain) moodsOf(it).forEach(function (mo) { present[mo] = 1; }); });
+    var ordered = MOOD_ORDER.filter(function (c) { return present[c]; });
     Object.keys(present).forEach(function (c) { if (ordered.indexOf(c) === -1) ordered.push(c); });
     return ordered;
   }
@@ -522,20 +605,20 @@
     });
     return Object.keys(counts).sort(function (a, b) { return counts[b] - counts[a] || a.localeCompare(b); });
   }
-  function allCollections() {
-    var set = [];
-    allItems().forEach(function (it) { if (it.collection && set.indexOf(it.collection) === -1) set.push(it.collection); });
+  function allMoods() {
+    var set = MOOD_ORDER.slice();
+    allItems().forEach(function (it) { moodsOf(it).forEach(function (mo) { if (set.indexOf(mo) === -1) set.push(mo); }); });
     return set;
   }
 
   function currentList() {
     var q = state.q.trim().toLowerCase();
     var list = allItems().filter(function (it) { return it.d === state.domain; });
-    if (state.coll) list = list.filter(function (it) { return it.collection === state.coll || (it.genre || []).indexOf(state.coll) !== -1; });
+    if (state.coll) list = list.filter(function (it) { return moodsOf(it).indexOf(state.coll) !== -1 || (it.genre || []).indexOf(state.coll) !== -1; });
     if (q) {
       list = list.filter(function (it) {
         var hay = it.title + " " + (it.sub || "") + " " + (it.genre || []).join(" ") + " " +
-          it.type + " " + it.year + " " + (it.collection || "") + " " +
+          it.type + " " + it.year + " " + moodsOf(it).join(" ") + " " +
           (it.highlights || []).map(function (h) { return h.label; }).join(" ");
         return hay.toLowerCase().indexOf(q) !== -1;
       });
@@ -574,8 +657,11 @@
     out += '<div class="label">' + (it.d === "screen" ? "Where to watch" : "Where to listen") + '</div>' +
       '<div class="watch">' + links + "</div>";
 
+    var delZone = state.confirmDel === it.id
+      ? '<span class="confirm">Remove “' + esc(it.title) + '”? <button class="del-yes" data-delyes="' + it.id + '">Delete</button><button class="del-no" data-delno="1">Keep it</button></span>'
+      : '<button class="del" data-del="' + it.id + '">Remove from vault</button>';
     out += '<div class="actions"><button class="share" data-share="' + it.id + '">⧉ Copy to share</button>' +
-      (it.seed ? "" : '<button class="del" data-del="' + it.id + '">Remove from vault</button>') + "</div>";
+      '<button class="edit" data-edit="' + it.id + '">✎ Edit</button>' + delZone + "</div>";
     return out + "</div>";
   }
 
@@ -583,8 +669,8 @@
     var list = currentList();
     var content = $("#content");
 
-    // filter bar: curated collections first, then genres
-    var colls = domainCollections(), gens = domainGenres();
+    // filter bar: moods first (how the user navigates), then genres
+    var colls = domainMoods(), gens = domainGenres();
     var cbHtml = '<button class="' + (state.coll === "" ? "active" : "") + '" data-coll="">All</button>';
     colls.forEach(function (c) { cbHtml += '<button class="' + (state.coll === c ? "active" : "") + '" data-coll="' + esc(c) + '">' + esc(c) + "</button>"; });
     if (colls.length && gens.length) cbHtml += '<span class="cb-div"></span>';
@@ -607,7 +693,7 @@
         var open = state.open[it.id] ? " open" : "";
         var chips = '<span class="chip type">' + esc(it.type) + "</span>" +
           (it.year ? '<span class="chip year">' + esc(it.year) + "</span>" : "") +
-          (it.collection ? '<span class="chip coll" data-coll="' + esc(it.collection) + '">' + esc(it.collection) + "</span>" : "") +
+          moodsOf(it).map(function (mo) { return '<span class="chip coll" data-coll="' + esc(mo) + '">' + esc(mo) + "</span>"; }).join("") +
           (it.genre || []).map(function (g) { return '<span class="chip">' + esc(g) + "</span>"; }).join("");
         var hn = (it.highlights || []).length;
         var hint = hn ? '<div class="moment-hint">▶ ' + hn + " signature moment" + (hn > 1 ? "s" : "") + "</div>" : "";
@@ -633,12 +719,12 @@
           '<td class="t-title">' + esc(it.title) + (sub2 ? '<div class="sub2">' + sub2 + "</div>" : "") + "</td>" +
           "<td>" + esc(it.type) + "</td>" +
           '<td class="t-year">' + (it.year || "—") + "</td>" +
-          "<td>" + (it.collection ? '<span class="coll-tag">' + esc(it.collection) + "</span>" : "") + esc((it.genre || []).join(", ")) + "</td></tr>";
+          "<td>" + moodsOf(it).map(function (mo) { return '<span class="coll-tag" data-coll="' + esc(mo) + '">' + esc(mo) + "</span>"; }).join("") + esc((it.genre || []).join(", ")) + "</td></tr>";
         var det = state.open[it.id] ? '<tr class="detail-row"><td colspan="4">' + detailHTML(it) + "</td></tr>" : "";
         return main + det;
       }).join("");
       content.innerHTML = '<div class="table-scroll"><table><thead><tr>' +
-        th("title", "Title") + th("type", "Type") + th("year", "Year") + th("genre", "Collection / Genre") +
+        th("title", "Title") + th("type", "Type") + th("year", "Year") + th("genre", "Moods / Genre") +
         "</tr></thead><tbody>" + rows + "</tbody></table></div>";
     }
   }
@@ -687,7 +773,7 @@
     tab.addEventListener("click", function () {
       document.querySelectorAll(".domain-tab").forEach(function (t) { t.classList.remove("active"); });
       tab.classList.add("active");
-      state.domain = tab.dataset.d; state.open = {}; state.coll = "";
+      state.domain = tab.dataset.d; state.open = {}; state.coll = ""; state.confirmDel = null;
       applyAccent(); render();
     });
   });
@@ -706,7 +792,13 @@
     var shareBtn = e.target.closest("[data-share]");
     if (shareBtn) { e.stopPropagation(); copyShare(byId(shareBtn.dataset.share), shareBtn); return; }
     var delBtn = e.target.closest("[data-del]");
-    if (delBtn) { e.stopPropagation(); userItems = userItems.filter(function (x) { return x.id !== delBtn.dataset.del; }); save(); render(); return; }
+    if (delBtn) { e.stopPropagation(); state.confirmDel = delBtn.dataset.del; render(); return; }
+    var delYes = e.target.closest("[data-delyes]");
+    if (delYes) { e.stopPropagation(); deleteItem(delYes.dataset.delyes); render(); return; }
+    var delNo = e.target.closest("[data-delno]");
+    if (delNo) { e.stopPropagation(); state.confirmDel = null; render(); return; }
+    var editBtn = e.target.closest("[data-edit]");
+    if (editBtn) { e.stopPropagation(); openModal(byId(editBtn.dataset.edit)); return; }
     var collChip = e.target.closest("[data-coll]");
     if (collChip) { e.stopPropagation(); state.coll = collChip.dataset.coll; render(); return; }
     if (e.target.closest("a")) return;
@@ -725,45 +817,134 @@
     $("#lblTitle").textContent = domain === "screen" ? "Title" : "Title / Artist name";
   }
   function refreshCollList() {
-    $("#collList").innerHTML = allCollections().map(function (c) { return '<option value="' + esc(c) + '">'; }).join("");
+    $("#collList").innerHTML = allMoods().map(function (c) { return '<option value="' + esc(c) + '">'; }).join("");
   }
-  function openModal() {
-    var dChecked = form.querySelector('input[name="domain"][value="' + state.domain + '"]');
+  function setField(name, val) { var el = form.querySelector('[name="' + name + '"]'); if (el) el.value = val == null ? "" : val; }
+
+  function openModal(item) {
+    state.editId = item ? item.id : null;
+    state.editOrig = item || null;
+    state.lookupImg = item && item.img ? item.img : null;
+    var domain = item ? item.d : state.domain;
+    form.reset();
+    $("#lookup").classList.remove("show"); $("#lookup").innerHTML = "";
+    var dChecked = form.querySelector('input[name="domain"][value="' + domain + '"]');
     if (dChecked) dChecked.checked = true;
-    fillTypes(state.domain); refreshCollList();
+    fillTypes(domain); refreshCollList();
+    if (item) {
+      $("#modalTitle").textContent = "Edit";
+      $("#submitBtn").textContent = "Save changes";
+      setField("title", item.title); setField("sub", item.sub); setField("year", item.year);
+      setField("type", item.type); setField("genre", (item.genre || []).join(", "));
+      setField("moods", moodsOf(item).join(", ")); setField("note", item.note);
+      var hl = item.highlights || [];
+      setField("hl_label_1", hl[0] ? hl[0].label : ""); setField("hl_url_1", hl[0] ? hl[0].url : "");
+      setField("hl_label_2", hl[1] ? hl[1].label : ""); setField("hl_url_2", hl[1] ? hl[1].url : "");
+    } else {
+      $("#modalTitle").textContent = "Add to the vault";
+      $("#submitBtn").textContent = "Add to Marquee";
+    }
     overlay.classList.add("open");
     setTimeout(function () { form.querySelector('input[name="title"]').focus(); }, 50);
   }
-  function closeModal() { overlay.classList.remove("open"); form.reset(); }
-  $("#fab").addEventListener("click", openModal);
+  function closeModal() {
+    overlay.classList.remove("open"); form.reset();
+    state.editId = null; state.editOrig = null; state.lookupImg = null;
+    $("#lookup").classList.remove("show"); $("#lookup").innerHTML = "";
+  }
+  $("#fab").addEventListener("click", function () { openModal(null); });
   $("#closeModal").addEventListener("click", closeModal);
   overlay.addEventListener("click", function (e) { if (e.target === overlay) closeModal(); });
   form.querySelectorAll('input[name="domain"]').forEach(function (r) { r.addEventListener("change", function () { fillTypes(r.value); }); });
   document.addEventListener("keydown", function (e) { if (e.key === "Escape") closeModal(); });
 
+  // ----- Auto-fill lookup (keyless via Wikipedia; TMDB will supersede once its key is set) -----
+  var lookupBox = $("#lookup");
+  function runLookup() {
+    var qv = (form.querySelector('input[name="title"]').value || "").trim();
+    if (!qv) { form.querySelector('input[name="title"]').focus(); return; }
+    var domain = (form.querySelector('input[name="domain"]:checked') || {}).value || "screen";
+    lookupBox.classList.add("show");
+    lookupBox.innerHTML = '<div class="lr-status">Searching…</div>';
+    fetch("https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=" +
+      encodeURIComponent(qv + (domain === "screen" ? " film" : "")) + "&srlimit=6&format=json&origin=*")
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        var hits = (j.query && j.query.search) || [];
+        if (!hits.length) { lookupBox.innerHTML = '<div class="lr-status">No matches — just fill it in manually.</div>'; return; }
+        lookupBox.innerHTML = hits.map(function (h) {
+          var snip = (h.snippet || "").replace(/<[^>]+>/g, "").slice(0, 90);
+          return '<button type="button" data-key="' + esc(h.title) + '"><span class="lr-title">' + esc(h.title) +
+            '</span><span class="lr-desc">' + esc(snip) + "…</span></button>";
+        }).join("");
+      })
+      .catch(function () { lookupBox.innerHTML = '<div class="lr-status">Lookup needs internet — works on the live site.</div>'; });
+  }
+  function pickLookup(pageKey) {
+    var domain = (form.querySelector('input[name="domain"]:checked') || {}).value || "screen";
+    lookupBox.innerHTML = '<div class="lr-status">Fetching details…</div>';
+    fetch("https://en.wikipedia.org/api/rest_v1/page/summary/" + encodeURIComponent(pageKey))
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) {
+        if (!j) { lookupBox.innerHTML = '<div class="lr-status">Could not load that one.</div>'; return; }
+        var ex = j.extract || "";
+        setField("title", (j.title || "").replace(/\s*\((?:[^()]*\b(?:film|song|album|TV series)\b[^()]*)\)\s*$/i, ""));
+        if (ex) setField("note", ex);
+        var ym = ex.match(/\b(?:19|20)\d{2}\b/); if (ym) setField("year", ym[0]);
+        if (domain === "screen") {
+          var dm = ex.match(/directed by ([A-Z][^,.;]+?)(?:,| and | based | from |\.|;|$)/);
+          if (dm) setField("sub", dm[1].trim());
+        }
+        if (j.thumbnail && j.thumbnail.source) state.lookupImg = j.thumbnail.source;
+        lookupBox.classList.remove("show"); lookupBox.innerHTML = "";
+      })
+      .catch(function () { lookupBox.innerHTML = '<div class="lr-status">Could not load that one.</div>'; });
+  }
+  $("#lookupBtn").addEventListener("click", runLookup);
+  lookupBox.addEventListener("click", function (e) {
+    var b = e.target.closest("button[data-key]"); if (b) pickLookup(b.dataset.key);
+  });
+
   form.addEventListener("submit", function (e) {
     e.preventDefault();
     var f = new FormData(form);
     var domain = f.get("domain");
+    var title = (f.get("title") || "").trim();
+    if (!title) return;
     var highlights = [];
     [["hl_label_1", "hl_url_1"], ["hl_label_2", "hl_url_2"]].forEach(function (p) {
       var u = (f.get(p[1]) || "").trim();
       if (u) highlights.push({ label: (f.get(p[0]) || "Watch this moment").trim(), url: u });
     });
-    var item = {
-      id: "u" + Date.now(),
+    var orig = state.editOrig;
+    if (orig && orig.highlights && orig.highlights.length > 2) highlights = highlights.concat(orig.highlights.slice(2));
+    var fields = {
       d: domain,
       type: f.get("type") || (domain === "screen" ? "Movie" : "Song"),
-      title: (f.get("title") || "").trim(),
+      title: title,
       sub: (f.get("sub") || "").trim(),
       year: parseInt(f.get("year"), 10) || null,
       genre: (f.get("genre") || "").split(",").map(function (s) { return s.trim(); }).filter(Boolean),
-      collection: (f.get("collection") || "").trim(),
+      moods: (f.get("moods") || "").split(",").map(function (s) { return s.trim(); }).filter(Boolean),
       note: (f.get("note") || "").trim(),
       highlights: highlights
     };
-    if (!item.title) return;
-    userItems.push(item); save();
+    var img = state.lookupImg || (orig && orig.img) || null;
+    if (img) fields.img = img;
+
+    if (state.editId && state.editId.charAt(0) === "s") {
+      fields.id = "u" + Date.now(); userItems.push(fields);
+      if (deletedSeeds.indexOf(state.editId) === -1) { deletedSeeds.push(state.editId); saveDel(); }
+      state.open[fields.id] = true;
+    } else if (state.editId) {
+      for (var i = 0; i < userItems.length; i++) {
+        if (userItems[i].id === state.editId) { fields.id = state.editId; userItems[i] = fields; break; }
+      }
+      state.open[state.editId] = true;
+    } else {
+      fields.id = "u" + Date.now(); userItems.push(fields);
+    }
+    save();
     state.domain = domain; state.coll = "";
     document.querySelectorAll(".domain-tab").forEach(function (t) { t.classList.toggle("active", t.dataset.d === domain); });
     applyAccent(); closeModal(); render();
