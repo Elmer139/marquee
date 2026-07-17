@@ -112,9 +112,9 @@
   .chip.type { background: var(--accent-soft); border-color: transparent; color: var(--ink); }
   .chip.coll { border-style: dashed; border-color: var(--accent); color: var(--accent); cursor: pointer; }
   .chip.coll:hover { background: var(--accent-soft); }
-  .card-bottom { margin-top: auto; padding-top: 10px; display: flex; flex-direction: column; gap: 7px; }
-  .logline { font-family: var(--sans); font-size: 13.5px; font-weight: 500; color: var(--ink-2); line-height: 1.35; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .card-bottom { margin-top: auto; padding-top: 10px; }
   .moment-hint { font-size: 12px; font-weight: 600; color: var(--accent); display: flex; align-items: center; gap: 5px; }
+  .logline-row { padding: 11px 16px 14px; border-top: 1px solid var(--line); font-family: var(--sans); font-size: 13.5px; font-weight: 500; color: var(--ink-2); line-height: 1.35; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
   /* Detail overlay */
   .detail-modal { position: relative; }
@@ -357,7 +357,7 @@
 (function () {
   "use strict";
 
-  var APP_VERSION = "0.9.6";
+  var APP_VERSION = "0.9.7";
   var yt = function (id) { return "https://www.youtube.com/watch?v=" + id; };
 
   // The way the user navigates: by FEELING. Moods show first in the filter bar (in this order),
@@ -487,14 +487,11 @@
   };
   // Fallback vibe composed from the item's own feel + genre, so no card is left blank.
   function composeLogline(it) {
-    var adjMap = { "heartbreaking": "heartbreaking", "tear jerkers": "tear-jerking", "true love": "tender", "sorrow": "sorrowful", "inspirational": "inspiring", "thought-provoking": "thought-provoking", "controversial": "provocative", "thrilling": "thrilling", "funny": "funny", "hidden gem": "under-seen", "mastery": "masterful", "spiritual": "soulful" };
-    var m = moodsOf(it)[0], adj = m ? (adjMap[m.toLowerCase()] || "") : "";
-    var genre = it.genre && it.genre[0] ? it.genre[0].toLowerCase() : "";
-    var noun = it.d === "sound" ? (it.type === "Song" ? "song" : "record") : (it.type === "TV Series" ? "series" : it.type === "Documentary" ? "documentary" : "film");
-    if (genre === noun) genre = "";
-    var words = [adj, genre, noun].filter(Boolean);
-    if (!words.length) return "";
-    return (/^[aeiou]/i.test(words[0]) ? "An " : "A ") + words.join(" ");
+    var moodNoun = { "heartbreaking": "tragedy", "sorrow": "tragedy", "tear jerkers": "tearjerker", "true love": "love story", "inspirational": "triumph", "thought-provoking": "mind-bender", "controversial": "provocation", "thrilling": "thriller", "funny": "comedy", "hidden gem": "hidden gem", "mastery": "masterwork", "spiritual": "meditation" };
+    var m = (moodsOf(it)[0] || "").toLowerCase(), noun = moodNoun[m] || "";
+    var genre = it.genre && it.genre[0] ? it.genre[0] : "", g = genre.toLowerCase();
+    var phrase = (genre && noun && g !== noun && noun.indexOf(g) === -1 && g.indexOf(noun) === -1) ? genre + " " + noun : (genre || noun || "");
+    return phrase ? phrase.charAt(0).toUpperCase() + phrase.slice(1) : "";
   }
   function loglineOf(it) { return it.logline || LOGLINES[it.title + "|" + (it.year || "")] || composeLogline(it); }
 
@@ -969,16 +966,16 @@
           (it.year ? '<span class="chip year">' + esc(it.year) + "</span>" : "") +
           shown.join("") + (moreN > 0 ? '<span class="chip more">+' + moreN + "</span>" : "");
         var hn = (it.highlights || []).length;
-        var hint = hn ? '<div class="moment-hint">▶ ' + hn + " signature moment" + (hn > 1 ? "s" : "") + "</div>" : "";
+        var hint = hn ? '<div class="card-bottom"><div class="moment-hint">▶ ' + hn + " signature moment" + (hn > 1 ? "s" : "") + "</div></div>" : "";
         var logline = loglineOf(it);
-        var bottom = '<div class="card-bottom">' + hint +
-          (logline ? '<div class="logline">' + esc(logline) + "</div>" : "") + "</div>";
         return '<div class="card" data-id="' + it.id + '">' +
           '<div class="card-top"><div class="poster" data-pid="' + it.id + '" style="' + posterFallbackStyle(it.title) + '"><span class="ph">' + esc(monogram(it.title)) + "</span></div>" +
           '<div class="card-body">' +
           "<h3>" + esc(it.title) + "</h3>" +
           (it.sub ? '<div class="meta">' + esc(it.sub) + "</div>" : "") +
-          '<div class="chips">' + chips + "</div>" + bottom + "</div></div></div>";
+          '<div class="chips">' + chips + "</div>" + hint + "</div></div>" +
+          (logline ? '<div class="logline-row">' + esc(logline) + "</div>" : "") +
+          "</div>";
       }).join("") + "</div>";
       list.forEach(loadPoster);
     } else {
