@@ -56,6 +56,29 @@ export default async function handler(req, res) {
       return;
     }
 
+    if (action === "providers") {
+      const kind = q.kind === "tv" ? "tv" : "movie";
+      let id = q.id;
+      if (!id && q.q) {
+        const yr = q.year ? "&" + (kind === "tv" ? "first_air_date_year" : "year") + "=" + encodeURIComponent(q.year) : "";
+        const sr = await fetch(withKey("/search/" + kind, "query=" + encodeURIComponent(q.q) + yr));
+        const sj = await sr.json();
+        const hit = (sj.results || [])[0];
+        if (hit) id = hit.id;
+      }
+      if (!id) { res.status(200).json({ configured: true, providers: null }); return; }
+      const region = (q.region || "US").toUpperCase();
+      const pr = await fetch(withKey("/" + kind + "/" + id + "/watch/providers"));
+      const pj = await pr.json();
+      const data = (pj.results && pj.results[region]) || null;
+      const map = (arr) => (arr || []).map((p) => ({ name: p.provider_name, logo: p.logo_path ? img(p.logo_path, "w92") : null }));
+      res.status(200).json({
+        configured: true,
+        providers: data ? { region, link: data.link || null, flatrate: map(data.flatrate), rent: map(data.rent), buy: map(data.buy) } : { region, link: null, flatrate: [], rent: [], buy: [] }
+      });
+      return;
+    }
+
     res.status(400).json({ error: "unknown action" });
   } catch (e) {
     res.status(200).json({ configured: true, error: String(e && e.message || e) });

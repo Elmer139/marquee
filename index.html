@@ -128,6 +128,15 @@
   .detail .label + .label { margin-top: 18px; }
   .hint2 { text-transform: none; letter-spacing: 0; color: var(--ink-3); font-weight: 400; }
   .detail p { margin: 0 0 6px; font-size: 14px; color: var(--ink); }
+  .providers { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: -2px 0 14px; }
+  .providers:empty { display: none; }
+  .prov-label { font-size: 11px; color: var(--ink-3); text-transform: uppercase; letter-spacing: 0.8px; }
+  .prov-label.dim { text-transform: none; letter-spacing: 0; font-style: italic; }
+  .prov img { height: 28px; width: 28px; border-radius: 6px; display: block; }
+  .prov.txt { font-size: 12px; border: 1px solid var(--line); border-radius: 6px; padding: 3px 8px; }
+  .prov-more { font-size: 12px; color: var(--ink-2); text-decoration: none; font-weight: 600; }
+  .prov-more:hover { color: var(--accent); }
+  .prov-loading { font-size: 12px; color: var(--ink-3); font-style: italic; }
   .watch { display: flex; flex-wrap: wrap; gap: 8px; }
   .watch a { text-decoration: none; font-size: 13px; font-weight: 600; color: var(--ink); border: 1px solid var(--line); border-radius: 9px; padding: 8px 12px; display: inline-flex; align-items: center; gap: 6px; background: var(--surface); }
   .watch a:hover { border-color: var(--accent); color: var(--accent); }
@@ -336,7 +345,7 @@
 (function () {
   "use strict";
 
-  var APP_VERSION = "0.9.2";
+  var APP_VERSION = "0.9.3";
   var yt = function (id) { return "https://www.youtube.com/watch?v=" + id; };
 
   // The way the user navigates: by FEELING. Moods show first in the filter bar (in this order),
@@ -746,8 +755,7 @@
         : { label: "▶ Find trailer", url: "https://www.youtube.com/results?search_query=" + encodeURIComponent(it.title + " " + (it.year || "") + (it.type === "TV Series" ? " series" : "") + " official trailer"), hot: true };
       return [
         trailer,
-        { label: "Where to watch", url: "https://www.google.com/search?q=where+to+watch+" + q + "+streaming" },
-        { label: "JustWatch", url: "https://www.justwatch.com/us/search?q=" + encodeURIComponent(it.title) },
+        { label: "All options (JustWatch)", url: "https://www.justwatch.com/us/search?q=" + encodeURIComponent(it.title) },
         { label: "On TV tonight", url: "https://www.google.com/search?q=" + q + "+on+tv+schedule" }
       ];
     }
@@ -836,8 +844,9 @@
     var links = watchLinks(it).map(function (l) {
       return '<a class="' + (l.hot ? "hot" : "") + '" href="' + esc(l.url) + '" target="_blank" rel="noopener">' + esc(l.label) + " " + extIcon + "</a>";
     }).join("");
-    out += '<div class="label">' + (it.d === "screen" ? "Where to watch" : "Where to listen") + '</div>' +
-      '<div class="watch">' + links + "</div>";
+    out += '<div class="label">' + (it.d === "screen" ? "Where to watch" : "Where to listen") + '</div>';
+    if (it.d === "screen") out += '<div class="providers" id="detailProviders"></div>';
+    out += '<div class="watch">' + links + "</div>";
 
     var delZone = state.confirmDel === it.id
       ? '<span class="confirm">Remove “' + esc(it.title) + '”? <button class="del-yes" data-delyes="' + it.id + '">Delete</button><button class="del-no" data-delno="1">Keep it</button></span>'
@@ -959,6 +968,35 @@
     if (!it) { closeDetail(); return; }
     $("#detailBody").innerHTML = detailHTML(it);
     loadDetailPoster(it);
+    loadProviders(it);
+  }
+  // Real "where to watch" — actual streaming services from TMDB (JustWatch-powered).
+  var providerCache = {};
+  function provChip(p) {
+    return p.logo ? '<span class="prov" title="' + esc(p.name) + '"><img src="' + esc(p.logo) + '" alt="' + esc(p.name) + '"></span>'
+      : '<span class="prov txt">' + esc(p.name) + "</span>";
+  }
+  function loadProviders(it) {
+    if (it.d !== "screen") return;
+    var el = $("#detailProviders"); if (!el) return;
+    var kind = it.type === "TV Series" ? "tv" : "movie";
+    var key = it.title + "|" + (it.year || "") + "|" + kind;
+    function render(p) {
+      if (!p) { el.innerHTML = ""; return; }
+      var flat = p.flatrate || [], rentbuy = (p.rent || []).concat(p.buy || []);
+      var moreLink = p.link ? ' <a class="prov-more" href="' + esc(p.link) + '" target="_blank" rel="noopener">all options ↗</a>' : "";
+      if (flat.length) el.innerHTML = '<span class="prov-label">Streaming on</span>' + flat.slice(0, 6).map(provChip).join("") + moreLink;
+      else if (rentbuy.length) el.innerHTML = '<span class="prov-label">Rent / buy</span>' + rentbuy.slice(0, 6).map(provChip).join("") + moreLink;
+      else el.innerHTML = '<span class="prov-label dim">Not on streaming right now</span>';
+    }
+    if (Object.prototype.hasOwnProperty.call(providerCache, key)) { render(providerCache[key]); return; }
+    el.innerHTML = '<span class="prov-loading">Checking where to watch…</span>';
+    fetch("/api/tmdb?action=providers&kind=" + kind + "&q=" + encodeURIComponent(it.title) + (it.year ? "&year=" + it.year : ""))
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        if (!j || j.configured === false) { el.innerHTML = ""; return; }
+        providerCache[key] = j.providers; render(j.providers);
+      }).catch(function () { el.innerHTML = ""; });
   }
   function openDetail(id) {
     state.detailId = id; state.confirmDel = null;
