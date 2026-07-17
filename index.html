@@ -336,7 +336,7 @@
 (function () {
   "use strict";
 
-  var APP_VERSION = "0.9.0";
+  var APP_VERSION = "0.9.1";
   var yt = function (id) { return "https://www.youtube.com/watch?v=" + id; };
 
   // The way the user navigates: by FEELING. Moods show first in the filter bar (in this order),
@@ -506,13 +506,45 @@
         wikiThumb(best.title, function (url) { imgCache[pk] = url; saveImg(); cb(url); });
       }).catch(function () { cb(null); });
   }
-  function resolvePoster(it, cb) {
-    if (it.img) { cb(it.img); return; } // image already tied to this item's identified page (lookup/enrich/TMDB)
+  function pickTmdbMatch(results, it) {
+    var kind = it.type === "TV Series" ? "tv" : "movie";
+    var title = (it.title || "").toLowerCase(), yr = String(it.year || ""), best = null, bestS = -1;
+    (results || []).forEach(function (r) {
+      var s = 0, rt = (r.title || "").toLowerCase();
+      if (rt === title) s += 3; else if (rt.indexOf(title) > -1 || title.indexOf(rt) > -1) s += 1;
+      if (r.kind === kind) s += 1;
+      if (yr && r.year === yr) s += 2;
+      if (r.poster) s += 0.5;
+      if (s > bestS) { bestS = s; best = r; }
+    });
+    return best && best.poster ? best : null;
+  }
+  function tmdbPoster(it, cb) {
+    var kind = it.type === "TV Series" ? "tv" : "movie";
+    var ck = "tmdb:" + it.title + "|" + (it.year || "") + "|" + kind;
+    if (Object.prototype.hasOwnProperty.call(imgCache, ck)) { cb(imgCache[ck]); return; }
+    tmdbApi("action=search&kind=multi&q=" + encodeURIComponent(it.title), function (j) {
+      if (!j || j.configured === false || !j.results) { cb(null); return; }
+      var best = pickTmdbMatch(j.results, it);
+      var url = best ? best.poster : null;
+      imgCache[ck] = url; saveImg(); cb(url);
+    });
+  }
+  function wikiPosterChain(it, cb) {
     // Poster must come from the SAME page as the description (it.wiki), never a different same-name work.
     var q = posterQuery(it);
     function afterDirect(url) { if (url) { cb(url); return; } tryPerson(it, cb); } // else lead-actor/artist photo, else monogram
     if (Object.prototype.hasOwnProperty.call(imgCache, q)) { afterDirect(imgCache[q]); return; }
     wikiThumb(q, function (url) { imgCache[q] = url; saveImg(); afterDirect(url); });
+  }
+  function resolvePoster(it, cb) {
+    if (it.img) { cb(it.img); return; } // explicit image (pasted / lookup / TMDB pick)
+    // Screen: prefer the exact TMDB poster; fall back to Wikipedia/photo/monogram. Sound: Wikipedia.
+    if (it.d === "screen" && tmdbState !== false) {
+      tmdbPoster(it, function (url) { if (url) { cb(url); return; } wikiPosterChain(it, cb); });
+      return;
+    }
+    wikiPosterChain(it, cb);
   }
   function loadPoster(it) {
     var el = document.querySelector('.grid .poster[data-pid="' + it.id + '"]');
@@ -920,7 +952,11 @@
 
   // ---------- Lightbox (tap a poster to see it large) ----------
   var lightbox = $("#lightbox"), lightboxImg = $("#lightboxImg");
-  function bigImg(url) { return /upload\.wikimedia\.org/.test(url) ? url.replace(/\/\d+px-/, "/1400px-") : url; }
+  function bigImg(url) {
+    if (/image\.tmdb\.org/.test(url)) return url.replace(/\/w\d+\//, "/w780/");
+    if (/upload\.wikimedia\.org/.test(url)) return url.replace(/\/\d+px-/, "/1400px-");
+    return url;
+  }
   function openLightbox(url) {
     if (!url) return;
     lightboxImg.onerror = function () { lightboxImg.onerror = null; lightboxImg.src = url; }; // fall back if the upsized URL 404s

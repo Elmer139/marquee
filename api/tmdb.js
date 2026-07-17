@@ -22,7 +22,7 @@ export default async function handler(req, res) {
         .map((it) => {
           const mt = it.media_type || kind;
           const date = it.release_date || it.first_air_date || "";
-          return { id: it.id, kind: mt, title: it.title || it.name, year: date ? date.slice(0, 4) : "", overview: it.overview || "", poster: img(it.poster_path, "w185") };
+          return { id: it.id, kind: mt, title: it.title || it.name, year: date ? date.slice(0, 4) : "", overview: it.overview || "", poster: img(it.poster_path, "w342") };
         });
       res.status(200).json({ configured: true, results });
       return;
