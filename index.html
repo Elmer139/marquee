@@ -289,6 +289,10 @@
         <textarea name="note" placeholder="Something notable, historic, or genre-changing…"></textarea>
       </div>
       <div class="field">
+        <label id="lblTrailer">Exact trailer / clip link <span class="hint">(optional — paste the real link so it never lands on the wrong title)</span></label>
+        <input name="trailer" placeholder="https://youtu.be/…  or  netflix.com/title/…">
+      </div>
+      <div class="field">
         <label>Signature moments <span class="hint">(a scene worth sharing — label + link)</span></label>
         <div class="hl-row"><input name="hl_label_1" placeholder="e.g. The ending"><input name="hl_url_1" placeholder="https://youtu.be/…"></div>
         <div class="hl-row"><input name="hl_label_2" placeholder="Another moment"><input name="hl_url_2" placeholder="https://youtu.be/…"></div>
@@ -303,7 +307,7 @@
 (function () {
   "use strict";
 
-  var APP_VERSION = "0.6.2";
+  var APP_VERSION = "0.6.3";
   var yt = function (id) { return "https://www.youtube.com/watch?v=" + id; };
 
   // The way the user navigates: by FEELING. Moods show first in the filter bar (in this order),
@@ -587,16 +591,23 @@
   function watchLinks(it) {
     var q = encodeURIComponent(it.title + (it.year ? " " + it.year : ""));
     if (it.d === "screen") {
+      // A specific title beats a search: use the exact trailer/clip link if the item has one.
+      var trailer = it.trailer
+        ? { label: "▶ Trailer", url: it.trailer, hot: true, exact: true }
+        : { label: "▶ Find trailer", url: "https://www.youtube.com/results?search_query=" + encodeURIComponent(it.title + " " + (it.year || "") + (it.type === "TV Series" ? " series" : "") + " official trailer"), hot: true };
       return [
-        { label: "▶ Trailer", url: "https://www.youtube.com/results?search_query=" + encodeURIComponent(it.title + " " + (it.year || "") + " official trailer"), hot: true },
+        trailer,
         { label: "Where to watch", url: "https://www.google.com/search?q=where+to+watch+" + q + "+streaming" },
         { label: "JustWatch", url: "https://www.justwatch.com/us/search?q=" + encodeURIComponent(it.title) },
         { label: "On TV tonight", url: "https://www.google.com/search?q=" + q + "+on+tv+schedule" }
       ];
     }
     var m = encodeURIComponent(it.title + " " + (it.sub || ""));
+    var listen = it.trailer
+      ? { label: "▶ Play", url: it.trailer, hot: true, exact: true }
+      : { label: "▶ Find on YouTube", url: "https://www.youtube.com/results?search_query=" + m, hot: true };
     return [
-      { label: "▶ Listen", url: "https://www.youtube.com/results?search_query=" + m, hot: true },
+      listen,
       { label: "Spotify", url: "https://open.spotify.com/search/" + m },
       { label: "On the radio", url: "https://www.google.com/search?q=" + m + "+radio+play" }
     ];
@@ -829,6 +840,8 @@
     $("#typeSelect").innerHTML = TYPES[domain].map(function (t) { return "<option>" + t + "</option>"; }).join("");
     $("#lblSub").textContent = domain === "screen" ? "Director / Cast" : "Artist / Members";
     $("#lblTitle").textContent = domain === "screen" ? "Title" : "Title / Artist name";
+    $("#lblTrailer").innerHTML = (domain === "screen" ? "Exact trailer / clip link " : "Exact video / clip link ") +
+      '<span class="hint">(optional — paste the real link so it never lands on the wrong title)</span>';
   }
   function refreshCollList() {
     $("#collList").innerHTML = allMoods().map(function (c) { return '<option value="' + esc(c) + '">'; }).join("");
@@ -850,7 +863,7 @@
       $("#submitBtn").textContent = "Save changes";
       setField("title", item.title); setField("sub", item.sub); setField("year", item.year);
       setField("type", item.type); setField("genre", (item.genre || []).join(", "));
-      setField("moods", moodsOf(item).join(", ")); setField("note", item.note);
+      setField("moods", moodsOf(item).join(", ")); setField("note", item.note); setField("trailer", item.trailer);
       var hl = item.highlights || [];
       setField("hl_label_1", hl[0] ? hl[0].label : ""); setField("hl_url_1", hl[0] ? hl[0].url : "");
       setField("hl_label_2", hl[1] ? hl[1].label : ""); setField("hl_url_2", hl[1] ? hl[1].url : "");
@@ -959,6 +972,8 @@
       note: (f.get("note") || "").trim(),
       highlights: highlights
     };
+    var trailer = (f.get("trailer") || "").trim();
+    if (trailer) fields.trailer = trailer;
     var img = state.lookupImg || (orig && orig.img) || null;
     if (img) fields.img = img;
 
