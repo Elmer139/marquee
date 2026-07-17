@@ -336,7 +336,7 @@
 (function () {
   "use strict";
 
-  var APP_VERSION = "0.9.1";
+  var APP_VERSION = "0.9.2";
   var yt = function (id) { return "https://www.youtube.com/watch?v=" + id; };
 
   // The way the user navigates: by FEELING. Moods show first in the filter bar (in this order),
@@ -537,11 +537,32 @@
     if (Object.prototype.hasOwnProperty.call(imgCache, q)) { afterDirect(imgCache[q]); return; }
     wikiThumb(q, function (url) { imgCache[q] = url; saveImg(); afterDirect(url); });
   }
+  // Music cover art from iTunes (via /api/art). For a song: "title artist" then just the artist's catalog.
+  function musicArt(it, cb) {
+    var artist = it.sub || it.title;
+    var ck = "itunes:" + it.title + "|" + artist;
+    if (Object.prototype.hasOwnProperty.call(imgCache, ck)) { cb(imgCache[ck]); return; }
+    function search(term, next) {
+      fetch("/api/art?q=" + encodeURIComponent(term)).then(function (r) { return r.json(); })
+        .then(function (j) { next(j && j.results && j.results[0] ? j.results[0].art : null); }).catch(function () { next(null); });
+    }
+    var primary = it.type === "Song" ? (it.title + " " + artist) : artist;
+    search(primary, function (a1) {
+      if (a1) { imgCache[ck] = a1; saveImg(); cb(a1); return; }
+      search(artist, function (a2) { imgCache[ck] = a2; saveImg(); cb(a2); }); // any release by the artist
+    });
+  }
   function resolvePoster(it, cb) {
     if (it.img) { cb(it.img); return; } // explicit image (pasted / lookup / TMDB pick)
-    // Screen: prefer the exact TMDB poster; fall back to Wikipedia/photo/monogram. Sound: Wikipedia.
-    if (it.d === "screen" && tmdbState !== false) {
+    if (it.d === "screen" && tmdbState !== false) { // exact TMDB poster -> Wikipedia -> photo -> monogram
       tmdbPoster(it, function (url) { if (url) { cb(url); return; } wikiPosterChain(it, cb); });
+      return;
+    }
+    if (it.d === "sound") { // Wikipedia (band photos / covers) -> iTunes cover art -> monogram
+      var q = posterQuery(it);
+      function afterWiki(url) { if (url) { cb(url); return; } musicArt(it, cb); }
+      if (Object.prototype.hasOwnProperty.call(imgCache, q)) { afterWiki(imgCache[q]); return; }
+      wikiThumb(q, function (url) { imgCache[q] = url; saveImg(); afterWiki(url); });
       return;
     }
     wikiPosterChain(it, cb);
@@ -954,6 +975,7 @@
   var lightbox = $("#lightbox"), lightboxImg = $("#lightboxImg");
   function bigImg(url) {
     if (/image\.tmdb\.org/.test(url)) return url.replace(/\/w\d+\//, "/w780/");
+    if (/mzstatic\.com/.test(url)) return url.replace(/\/\d+x\d+bb\./, "/1000x1000bb.");
     if (/upload\.wikimedia\.org/.test(url)) return url.replace(/\/\d+px-/, "/1400px-");
     return url;
   }
