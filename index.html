@@ -517,7 +517,7 @@
   };
 
   // Poster/image cache (Wikipedia lead images; works on real hosting, not the Claude sandbox).
-  var IMGKEY = "marquee.img.v1", imgCache;
+  var IMGKEY = "marquee.img.v2", imgCache;
   try { imgCache = JSON.parse(localStorage.getItem(IMGKEY)) || {}; } catch (e) { imgCache = {}; }
   function saveImg() { try { localStorage.setItem(IMGKEY, JSON.stringify(imgCache)); } catch (e) {} }
   function posterQuery(it) {
