@@ -180,7 +180,7 @@
   .title-row input { flex: 1; }
   .lookup-btn { flex: none; border: 1px solid var(--accent); background: var(--accent-soft); color: var(--accent); border-radius: 10px; padding: 0 14px; font-size: 13px; font-weight: 700; cursor: pointer; white-space: nowrap; }
   .lookup-btn:disabled { opacity: 0.6; cursor: default; }
-  .lookup-results { display: none; margin-top: 8px; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  .lookup-results { display: none; margin-top: 8px; border: 1px solid var(--line); border-radius: 10px; overflow-x: hidden; overflow-y: auto; max-height: 264px; }
   .lookup-results.show { display: block; }
   .lookup-results button { display: block; width: 100%; text-align: left; background: var(--surface); border: none; border-bottom: 1px solid var(--line); padding: 10px 12px; cursor: pointer; font-family: var(--sans); color: var(--ink); }
   .lookup-results button:last-child { border-bottom: none; }
@@ -303,7 +303,7 @@
 (function () {
   "use strict";
 
-  var APP_VERSION = "0.6.1";
+  var APP_VERSION = "0.6.2";
   var yt = function (id) { return "https://www.youtube.com/watch?v=" + id; };
 
   // The way the user navigates: by FEELING. Moods show first in the filter bar (in this order),
@@ -881,7 +881,7 @@
     lookupBox.classList.add("show");
     lookupBox.innerHTML = '<div class="lr-status">Searching…</div>';
     fetch("https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=" +
-      encodeURIComponent(qv + (domain === "screen" ? " film" : "")) + "&srlimit=6&format=json&origin=*")
+      encodeURIComponent(qv + (domain === "screen" ? " film" : "")) + "&srlimit=12&format=json&origin=*")
       .then(function (r) { return r.json(); })
       .then(function (j) {
         var hits = (j.query && j.query.search) || [];
@@ -893,6 +893,14 @@
         }).join("");
       })
       .catch(function () { lookupBox.innerHTML = '<div class="lr-status">Lookup needs internet — works on the live site.</div>'; });
+  }
+  function parseGenre(ex) {
+    var m = ex.match(/\b(?:19|20)\d{2}\s+([A-Za-z][A-Za-z\s-]*?)\s+(?:film|television series|TV series|miniseries|sitcom|drama series)\b/);
+    if (!m) return "";
+    var strip = { american: 1, british: 1, japanese: 1, french: 1, italian: 1, german: 1, canadian: 1, australian: 1, spanish: 1, mexican: 1, indian: 1, chinese: 1, korean: 1, soviet: 1, russian: 1, irish: 1, swedish: 1, danish: 1, independent: 1, silent: 1, animated: 1 };
+    var words = m[1].trim().split(/\s+/);
+    while (words.length > 1 && strip[words[0].toLowerCase()]) words.shift();
+    return words.join(" ").replace(/\b\w/g, function (c) { return c.toUpperCase(); });
   }
   function pickLookup(pageKey) {
     var domain = (form.querySelector('input[name="domain"]:checked') || {}).value || "screen";
@@ -908,6 +916,8 @@
         if (domain === "screen") {
           var dm = ex.match(/directed by ([A-Z][^,.;]+?)(?:,| and | based | from |\.|;|$)/);
           if (dm) setField("sub", dm[1].trim());
+          var g = parseGenre(ex);
+          if (g && !form.querySelector('[name="genre"]').value) setField("genre", g);
         }
         if (j.thumbnail && j.thumbnail.source) state.lookupImg = j.thumbnail.source;
         lookupBox.classList.remove("show"); lookupBox.innerHTML = "";
@@ -917,6 +927,12 @@
   $("#lookupBtn").addEventListener("click", runLookup);
   lookupBox.addEventListener("click", function (e) {
     var b = e.target.closest("button[data-key]"); if (b) pickLookup(b.dataset.key);
+  });
+  // Enter in a text field must NEVER submit/close the form; in the Title box it runs Look up.
+  form.addEventListener("keydown", function (e) {
+    if (e.key !== "Enter" || e.target.tagName !== "INPUT") return;
+    e.preventDefault();
+    if (e.target.name === "title") runLookup();
   });
 
   form.addEventListener("submit", function (e) {
