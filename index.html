@@ -361,7 +361,7 @@
 (function () {
   "use strict";
 
-  var APP_VERSION = "0.9.13";
+  var APP_VERSION = "0.9.14";
   var yt = function (id) { return "https://www.youtube.com/watch?v=" + id; };
 
   // The way the user navigates: by FEELING. Moods show first in the filter bar (in this order),
@@ -1289,13 +1289,56 @@
       lookupBox.classList.remove("show"); lookupBox.innerHTML = "";
     });
   }
+  // ----- Music lookup via iTunes: finds the actual SONG, not the artist/discography -----
+  var musicResults = [];
+  function renderMusicHits(results) {
+    musicResults = results || [];
+    if (!musicResults.length) { lookupBox.innerHTML = '<div class="lr-status">No matches — try another spelling.</div>'; return; }
+    lookupBox.innerHTML = musicResults.map(function (r, i) {
+      var thumb = r.art ? '<span class="lr-thumb" style="background-image:url(\'' + esc(r.art) + '\')"></span>' : '<span class="lr-thumb ph">♪</span>';
+      var bits = [r.artist, (r.album && r.album !== r.title) ? r.album : "", r.genre].filter(Boolean).join(" · ");
+      return '<button type="button" data-music="' + i + '">' + thumb +
+        '<span class="lr-body"><span class="lr-title">' + esc(r.title) + (r.year ? " (" + esc(r.year) + ")" : "") +
+        '</span><span class="lr-desc">' + esc(bits) + "</span></span></button>";
+    }).join("");
+  }
+  function pickMusic(i) {
+    var r = musicResults[i]; if (!r) return;
+    setField("title", r.title);
+    if (r.artist) setField("sub", r.artist);
+    if (r.year) setField("year", r.year);
+    if (r.genre && !form.querySelector('[name="genre"]').value) setField("genre", r.genre);
+    if (r.art) state.lookupImg = r.art;   // exact cover art for this exact track
+    state.lookupWiki = null;
+    var typeSel = $("#typeSelect"), want = r.kind === "album" ? "Album" : "Song";
+    if (typeSel) for (var k = 0; k < typeSel.options.length; k++) if (typeSel.options[k].value === want) typeSel.selectedIndex = k;
+    lookupBox.classList.remove("show"); lookupBox.innerHTML = "";
+  }
+  function musicLookup(kind) {
+    var qv = (form.querySelector('input[name="title"]').value || "").trim();
+    var sub = (form.querySelector('input[name="sub"]').value || "").trim();
+    var term = qv + (sub ? " " + sub : "");
+    fetch("/api/art?kind=" + kind + "&limit=12&q=" + encodeURIComponent(term))
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        if (!j || !j.results || !j.results.length) { wikiLookup(); return; } // nothing on iTunes -> Wikipedia
+        renderMusicHits(j.results);
+      })
+      .catch(function () { wikiLookup(); });
+  }
   function runLookup() {
     var qv = (form.querySelector('input[name="title"]').value || "").trim();
     if (!qv) { form.querySelector('input[name="title"]').focus(); return; }
     var domain = (form.querySelector('input[name="domain"]:checked') || {}).value || "screen";
     lookupBox.classList.add("show");
     lookupBox.innerHTML = '<div class="lr-status">Searching…</div>';
-    if (domain !== "screen" || tmdbState === false) { wikiLookup(); return; } // music, or TMDB not set up -> Wikipedia
+    if (domain === "sound") { // songs/albums -> iTunes; artists/bands -> Wikipedia (better bios & photos)
+      var t = ($("#typeSelect") || {}).value || "Song";
+      if (t === "Artist" || t === "Band") { wikiLookup(); return; }
+      musicLookup(t === "Album" ? "album" : "song");
+      return;
+    }
+    if (tmdbState === false) { wikiLookup(); return; } // TMDB not set up -> Wikipedia
     tmdbApi("action=search&kind=multi&q=" + encodeURIComponent(qv), function (j) {
       if (!j || j.configured === false || !j.results) { wikiLookup(); return; }
       renderTmdbHits(j.results);
@@ -1408,6 +1451,8 @@
   });
   $("#lookupBtn").addEventListener("click", runLookup);
   lookupBox.addEventListener("click", function (e) {
+    var mb = e.target.closest("button[data-music]");
+    if (mb) { pickMusic(parseInt(mb.dataset.music, 10)); return; }
     var tb = e.target.closest("button[data-tmdbid]");
     if (tb) { pickTmdb(tb.dataset.tmdbid, tb.dataset.kind); return; }
     var b = e.target.closest("button[data-key]"); if (b) pickLookup(b.dataset.key);
