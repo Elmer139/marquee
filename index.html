@@ -361,26 +361,27 @@
 (function () {
   "use strict";
 
-  var APP_VERSION = "0.9.17";
+  var APP_VERSION = "0.9.18";
   var yt = function (id) { return "https://www.youtube.com/watch?v=" + id; };
 
   // The way the user navigates: by FEELING. Moods show first in the filter bar (in this order),
   // genres follow. Items can carry several moods at once.
-  var MOOD_ORDER = ["True Love", "Heartbreaking", "Sorrow", "Tear Jerkers", "Funny", "Inspirational",
+  var MOOD_ORDER = ["True Love", "Steamy", "Explicit", "Heartbreaking", "Sorrow", "Tear Jerkers", "Funny", "Inspirational",
     "Thought-Provoking", "Thrilling", "Spiritual", "Controversial", "Hidden Gem", "Mastery"];
 
   // Mood tags for the seeded catalog, keyed by "title|year" (kept here so the data stays tidy).
   var MOODS = {
     "Life Is Beautiful|1997": ["True Love", "Heartbreaking", "Inspirational", "Tear Jerkers"],
     "Schindler's List|1993": ["Sorrow", "Heartbreaking", "Mastery"],
-    "Shakespeare in Love|1998": ["True Love"],
-    "Memoirs of a Geisha|2005": ["True Love", "Heartbreaking"],
+    "Shakespeare in Love|1998": ["True Love", "Steamy"],
+    "Memoirs of a Geisha|2005": ["True Love", "Heartbreaking", "Steamy"],
+    "The Witches of Eastwick|1987": ["Funny", "Steamy", "Controversial"],
     "Into the Wild|2007": ["True Love", "Heartbreaking", "Thought-Provoking", "Inspirational"],
     "Good Will Hunting|1997": ["Sorrow", "Heartbreaking", "Inspirational"],
     "Amy|2015": ["Sorrow", "Heartbreaking", "Mastery"],
     "Forrest Gump|1994": ["Inspirational", "Heartbreaking", "Tear Jerkers"],
     "Malcolm X|1992": ["Inspirational", "Controversial", "Mastery"],
-    "The Wolf of Wall Street|2013": ["Controversial", "Mastery"],
+    "The Wolf of Wall Street|2013": ["Controversial", "Mastery", "Steamy"],
     "Scanners|1981": ["Controversial", "Hidden Gem"],
     "Dead Presidents|1995": ["Hidden Gem", "Sorrow", "Controversial"],
     "Titus|1999": ["Controversial", "Hidden Gem", "Mastery"],
@@ -1397,6 +1398,7 @@
     var g = (text || "").toLowerCase(), out = [];
     function add(m) { if (out.indexOf(m) === -1) out.push(m); }
     if (/romance|romantic|love story/.test(g)) add("True Love");
+    if (/erotic|sensual|steamy|seduct|sexually explicit|softcore/.test(g)) add("Steamy");
     if (/\bcomedy\b|comedies|romantic comedy|comedy-drama|sitcom|parody|\bfarce\b|screwball|slapstick|mockumentary/.test(g)) add("Funny");
     if (/\bwar\b|holocaust/.test(g)) { add("Heartbreaking"); add("Thought-Provoking"); }
     if (/document|biograph|based on a true|historical|\bhistory\b/.test(g)) { add("Inspirational"); add("Thought-Provoking"); }
@@ -1568,6 +1570,17 @@
   }
   // Auto-write the AI story (vibe + trivia) for user-added cards that don't have one yet.
   var storiesBusy = false;
+  // Tag existing cards as Steamy when their genre/story clearly says so (e.g. "erotic thriller").
+  function backfillSteamy() {
+    var changed = false;
+    userItems.forEach(function (it) {
+      var hay = ((it.genre || []).join(" ") + " " + (it.note || "") + " " + (it.logline || "")).toLowerCase();
+      if (!/erotic|sensual|steamy|seduct|softcore/.test(hay)) return;
+      var m = (it.moods && it.moods.length) ? it.moods.slice() : moodsOf(it).slice();
+      if (m.indexOf("Steamy") === -1) { m.push("Steamy"); it.moods = m; changed = true; }
+    });
+    if (changed) { save(); render(); }
+  }
   function backfillStories() {
     if (storiesBusy) return;
     // re-queue any card marked "done" that never actually received a vibe
@@ -1615,6 +1628,7 @@
 
   applyAccent();
   render();
+  backfillSteamy();
   backfillMoods();
   backfillStories();
 })();
