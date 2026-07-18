@@ -361,7 +361,7 @@
 (function () {
   "use strict";
 
-  var APP_VERSION = "0.9.18";
+  var APP_VERSION = "0.9.19";
   var yt = function (id) { return "https://www.youtube.com/watch?v=" + id; };
 
   // The way the user navigates: by FEELING. Moods show first in the filter bar (in this order),
@@ -522,7 +522,7 @@
   };
 
   // Poster/image cache (Wikipedia lead images; works on real hosting, not the Claude sandbox).
-  var IMGKEY = "marquee.img.v2", imgCache;
+  var IMGKEY = "marquee.img.v3", imgCache;
   try { imgCache = JSON.parse(localStorage.getItem(IMGKEY)) || {}; } catch (e) { imgCache = {}; }
   function saveImg() { try { localStorage.setItem(IMGKEY, JSON.stringify(imgCache)); } catch (e) {} }
   function posterQuery(it) {
@@ -598,28 +598,41 @@
         wikiThumb(best.title, function (url) { imgCache[pk] = url; saveImg(); cb(url); });
       }).catch(function () { cb(null); });
   }
+  function normTitle(t) { return (t || "").toLowerCase().replace(/^the\s+/, "").replace(/[^a-z0-9 ]/g, "").replace(/\s+/g, " ").trim(); }
   function pickTmdbMatch(results, it) {
     var kind = it.type === "TV Series" ? "tv" : "movie";
-    var title = (it.title || "").toLowerCase(), yr = String(it.year || ""), best = null, bestS = -1;
+    var title = normTitle(it.title), yr = parseInt(it.year, 10) || 0, best = null, bestS = -1;
     (results || []).forEach(function (r) {
-      var s = 0, rt = (r.title || "").toLowerCase();
-      if (rt === title) s += 3; else if (rt.indexOf(title) > -1 || title.indexOf(rt) > -1) s += 1;
-      if (r.kind === kind) s += 1;
-      if (yr && r.year === yr) s += 2;
-      if (r.poster) s += 0.5;
+      if (!r.poster) return;                      // must actually have art
+      var rt = normTitle(r.title), s = 0;
+      if (rt === title) s += 4;                   // the title has to genuinely relate — never grab a random film
+      else if (rt.indexOf(title) > -1 || title.indexOf(rt) > -1) s += 1.5;
+      else return;
+      if (r.kind === kind) s += 1.5;
+      var ry = parseInt(r.year, 10) || 0;
+      if (yr && ry) { var d = Math.abs(ry - yr); s += d === 0 ? 3 : d <= 2 ? 1.5 : -1; } // sources differ by a year often
       if (s > bestS) { bestS = s; best = r; }
     });
-    return best && best.poster ? best : null;
+    return bestS >= 3 ? best : null;
   }
   function tmdbPoster(it, cb) {
     var kind = it.type === "TV Series" ? "tv" : "movie";
     var ck = "tmdb:" + it.title + "|" + (it.year || "") + "|" + kind;
     if (Object.prototype.hasOwnProperty.call(imgCache, ck)) { cb(imgCache[ck]); return; }
-    // search by exact kind + year so generic titles ("Life") match the right film
-    tmdbApi("action=search&kind=" + kind + "&q=" + encodeURIComponent(it.title) + (it.year ? "&year=" + it.year : ""), function (j) {
-      if (!j || j.configured === false || !j.results) { cb(null); return; }
-      var best = pickTmdbMatch(j.results, it) || (j.results[0] && j.results[0].poster ? j.results[0] : null);
-      imgCache[ck] = best ? best.poster : null; saveImg(); cb(best ? best.poster : null);
+    function store(url) { imgCache[ck] = url; saveImg(); cb(url); }
+    function search(withYear, next) {
+      tmdbApi("action=search&kind=" + kind + "&q=" + encodeURIComponent(it.title) + (withYear && it.year ? "&year=" + it.year : ""),
+        function (j) { next(j && j.results ? j.results : null); });
+    }
+    // 1) exact year narrows generic titles ("Life"); 2) if that finds nothing, drop the year —
+    // our year and TMDB's often differ by one (e.g. Six Million Dollar Man: ours 1973, TMDB 1974).
+    search(true, function (rs) {
+      var best = rs ? pickTmdbMatch(rs, it) : null;
+      if (best) { store(best.poster); return; }
+      search(false, function (rs2) {
+        var b2 = rs2 ? pickTmdbMatch(rs2, it) : null;
+        store(b2 ? b2.poster : null);
+      });
     });
   }
   function wikiPosterChain(it, cb) {
