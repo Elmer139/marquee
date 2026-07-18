@@ -361,7 +361,7 @@
 (function () {
   "use strict";
 
-  var APP_VERSION = "0.9.14";
+  var APP_VERSION = "0.9.15";
   var yt = function (id) { return "https://www.youtube.com/watch?v=" + id; };
 
   // The way the user navigates: by FEELING. Moods show first in the filter bar (in this order),
@@ -1164,7 +1164,7 @@
 
   // ---------- Modal ----------
   var overlay = $("#overlay"), form = $("#addForm");
-  var TYPES = { screen: ["Movie", "TV Series", "Documentary", "Short"], sound: ["Artist", "Song", "Album", "Band"] };
+  var TYPES = { screen: ["Movie", "TV Series", "Documentary", "Short"], sound: ["Song", "Artist", "Album", "Band"] };
   function fillTypes(domain) {
     $("#typeSelect").innerHTML = TYPES[domain].map(function (t) { return "<option>" + t + "</option>"; }).join("");
     $("#lblSub").textContent = domain === "screen" ? "Director / Cast" : "Artist / Members";
