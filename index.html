@@ -361,7 +361,7 @@
 (function () {
   "use strict";
 
-  var APP_VERSION = "0.9.16";
+  var APP_VERSION = "0.9.17";
   var yt = function (id) { return "https://www.youtube.com/watch?v=" + id; };
 
   // The way the user navigates: by FEELING. Moods show first in the filter bar (in this order),
@@ -1318,13 +1318,20 @@
     var qv = (form.querySelector('input[name="title"]').value || "").trim();
     var sub = (form.querySelector('input[name="sub"]').value || "").trim();
     var term = qv + (sub ? " " + sub : "");
-    fetch("/api/art?kind=" + kind + "&limit=12&q=" + encodeURIComponent(term))
-      .then(function (r) { return r.json(); })
-      .then(function (j) {
-        if (!j || !j.results || !j.results.length) { wikiLookup(); return; } // nothing on iTunes -> Wikipedia
-        renderMusicHits(j.results);
-      })
-      .catch(function () { wikiLookup(); });
+    function search(k, next) {
+      fetch("/api/art?kind=" + k + "&limit=12&q=" + encodeURIComponent(term))
+        .then(function (r) { return r.json(); })
+        .then(function (j) { next(j && j.results ? j.results : []); })
+        .catch(function () { next([]); });
+    }
+    search(kind, function (rs) {
+      if (rs.length) { renderMusicHits(rs); return; }
+      // nothing? try the other music shape, then fall back to Wikipedia
+      search(kind === "album" ? "song" : "album", function (rs2) {
+        if (rs2.length) { renderMusicHits(rs2); return; }
+        wikiLookup();
+      });
+    });
   }
   function runLookup() {
     var qv = (form.querySelector('input[name="title"]').value || "").trim();
@@ -1332,9 +1339,9 @@
     var domain = (form.querySelector('input[name="domain"]:checked') || {}).value || "screen";
     lookupBox.classList.add("show");
     lookupBox.innerHTML = '<div class="lr-status">Searching…</div>';
-    if (domain === "sound") { // songs/albums -> iTunes; artists/bands -> Wikipedia (better bios & photos)
+    if (domain === "sound") {
+      // Always search actual music (iTunes) — never depend on the Type dropdown to find a song.
       var t = ($("#typeSelect") || {}).value || "Song";
-      if (t === "Artist" || t === "Band") { wikiLookup(); return; }
       musicLookup(t === "Album" ? "album" : "song");
       return;
     }
